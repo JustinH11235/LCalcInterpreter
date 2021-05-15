@@ -1,6 +1,5 @@
 module Main where
 
-import Control.Monad ( join )
 import Control.Applicative ( Alternative(empty, (<|>)) )
 import Data.Char ( isAlphaNum, isSpace )
 
