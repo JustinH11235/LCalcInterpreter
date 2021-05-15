@@ -1,5 +1,6 @@
 module Main where
 
+import Control.Monad ( join )
 import Control.Applicative ( Alternative(empty, (<|>)) )
 import Data.Char ( isAlphaNum, isSpace )
 
@@ -102,7 +103,7 @@ throwAwayChar c = whiteSpace *> charP c
 parse :: String -> Maybe LCalcTerm
 parse inp = do
     let res = runParser lCalcTerm inp
-    case res of 
+    case res of
         Just (term, leftover) -> Just term
         Nothing -> Nothing
 
@@ -151,15 +152,20 @@ substituteTerm str atom term = case term of
 
 evaluateTerm :: LCalcTerm -> LCalcTerm
 evaluateTerm term = case term of
-    LCalcTermLiteral str term -> LCalcTermLiteral str (evaluateTerm term)
+    LCalcTermLiteral str term' -> LCalcTermLiteral str (evaluateTerm term')
     LCalcTermFromApp app -> LCalcTermFromApp $ evaluateApp app
 
 evaluateAtom :: LCalcAtom -> LCalcAtom
 evaluateAtom atom = case atom of
-    LCalcAtomLiteral term -> case res of 
-        LCalcTermFromApp (LCalcAppLiteral (LCalcAtomFromString str) LCalcApp'Empty) -> LCalcAtomFromString str
-        _ -> LCalcAtomLiteral res
-        where res = evaluateTerm term
+    LCalcAtomLiteral term -> case res of
+        LCalcTermFromApp (LCalcAppLiteral (LCalcAtomFromString str) LCalcApp'Empty) ->
+            LCalcAtomFromString str -- simplify identifiers wrapped in an atom
+        LCalcTermFromApp (LCalcAppLiteral (LCalcAtomLiteral (LCalcTermFromApp app)) LCalcApp'Empty) ->
+            LCalcAtomLiteral $ LCalcTermFromApp app -- simplify useless parens around terms
+        _ ->
+            LCalcAtomLiteral res
+        where
+            res = evaluateTerm term
     LCalcAtomFromString str -> atom
 
 evaluateApp' :: LCalcApp' -> LCalcApp'
@@ -171,7 +177,7 @@ evaluateApp' (LCalcApp'Literal atom app) = case app of -- input shouldn't be emp
             (LCalcAtomLiteral (LCalcTermLiteral str term), _) -> -- left is a term literal
                 evaluateApp' $ LCalcApp'Literal (LCalcAtomLiteral (substituteTerm str (evaluateAtom atom') (evaluateTerm term))) app'
             (_, _) -> -- left is not a term literal
-                evaluateApp' $ LCalcApp'Literal (evaluateAtom atom) (evaluateApp' app) -- replace if it loops
+                LCalcApp'Literal atom (evaluateApp' app)
 
 evaluateApp :: LCalcApp -> LCalcApp
 evaluateApp (LCalcAppLiteral atom app) = case app of
@@ -181,14 +187,42 @@ evaluateApp (LCalcAppLiteral atom app) = case app of
         case (atom, atom') of
             (LCalcAtomLiteral (LCalcTermLiteral str term), _) -> -- left is a term literal
                 evaluateApp $ LCalcAppLiteral (LCalcAtomLiteral (substituteTerm str (evaluateAtom atom') (evaluateTerm term))) app'
-            (_, _) -> -- left is not a term literal
-                evaluateApp $ LCalcAppLiteral (evaluateAtom atom) (evaluateApp' app) -- replace if it loops
+            (_, _) -> -- left is an identifier, can't simplify further
+                LCalcAppLiteral atom (evaluateApp' app)
+
+
+-- toLCalcString :: Maybe LCalcTerm -> String
+-- toLCalcString = maybe "Nothing" termToLCalcString
+
+termToLCalcString :: LCalcTerm -> String
+termToLCalcString term = case term of
+    LCalcTermLiteral str term' -> "\\" ++ str ++ "." ++ termToLCalcString term'
+    LCalcTermFromApp app -> appToLCalcString app
+
+atomToLCalcString :: LCalcAtom -> String
+atomToLCalcString atom = case atom of
+    LCalcAtomLiteral term -> "(" ++ termToLCalcString term ++ ")"
+    LCalcAtomFromString str -> str
+
+app'ToLCalcString :: LCalcApp' -> String
+app'ToLCalcString app = case app of
+    LCalcApp'Empty -> ""
+    LCalcApp'Literal atom' app' -> atomToLCalcString atom' ++ " " ++ app'ToLCalcString app'
+
+appToLCalcString :: LCalcApp -> String
+appToLCalcString (LCalcAppLiteral atom app) = atomToLCalcString atom ++ " " ++ app'ToLCalcString app
 
 
 
 main :: IO ()
 main = do
     inp <- getLine
-    let ast = parse inp
+    let (Just ast) = parse inp
+
     print ast
-    print $ evaluateTerm <$> ast
+    putStrLn ""
+    putStrLn $ termToLCalcString ast
+    putStrLn ""
+    print $ evaluateTerm ast
+    putStrLn ""
+    putStrLn $ termToLCalcString $ evaluateTerm ast
