@@ -272,13 +272,13 @@ shiftTerm :: Int -> LCalcTerm -> Int -> LCalcTerm
 shiftTerm shift term depth = case term of
     LCalcTermFromApp app ->
         LCalcTermFromApp $ shiftApp shift app depth
-    LCalcTermLiteral str term' ->
-        LCalcTermLiteral str (shiftTerm shift term' (depth + 1))
+    LCalcTermLiteral str' term' ->
+        LCalcTermLiteral str' (shiftTerm shift term' (depth + 1))
 
 shiftAtom :: Int -> LCalcAtom -> Int -> LCalcAtom
 shiftAtom shift atom depth = case atom of
     LCalcAtomLiteral term ->
-        LCalcAtomLiteral $ shiftTerm shift term (depth + 1)
+        LCalcAtomLiteral $ shiftTerm shift term depth
     LCalcAtomFromInt ind -> -- should never get string
         LCalcAtomFromInt $ -- this is where we shift
             if ind > depth then -- if a free var (w/ respect to starting node)
@@ -302,7 +302,7 @@ shiftApp shift (LCalcAppLiteral atom' app') depth =
 
 
 substitute :: LCalcAtom -> LCalcTerm -> LCalcTerm
-substitute atom term = shiftTerm (-1) (substituteTerm (shiftAtom 1 atom 0) term 0) 0
+substitute atom term = shiftTerm (-1) (substituteTerm (shiftAtom 1 atom (-1)) term (-1 + 1)) 0
 
 substituteTerm :: LCalcAtom -> LCalcTerm -> Int -> LCalcTerm
 substituteTerm atom term depth = case term of
@@ -314,7 +314,7 @@ substituteTerm atom term depth = case term of
 substituteAtom :: LCalcAtom -> LCalcAtom -> Int -> LCalcAtom
 substituteAtom atom atom' depth = case atom' of
     LCalcAtomLiteral term ->
-        LCalcAtomLiteral $ substituteTerm atom term (depth + 1)
+        LCalcAtomLiteral $ substituteTerm atom term depth
     LCalcAtomFromInt ind -> -- this is where we replace the occurence
         if ind == depth then -- if this refers to the variable we are replacing
             shiftAtom depth atom 0 -- shift by our current depth
@@ -346,8 +346,8 @@ evaluateTerm term = case term of
 evaluateAtom :: LCalcAtom -> LCalcAtom
 evaluateAtom atom = case atom of
     LCalcAtomLiteral term -> case res of
-        LCalcTermFromApp (LCalcAppLiteral (LCalcAtomFromInt int) LCalcApp'Empty) ->
-            LCalcAtomFromInt int -- simplify identifiers wrapped in an atom
+        LCalcTermFromApp (LCalcAppLiteral (LCalcAtomFromInt ind) LCalcApp'Empty) ->
+            LCalcAtomFromInt ind -- simplify identifiers wrapped in an atom
         LCalcTermFromApp (LCalcAppLiteral (LCalcAtomLiteral (LCalcTermFromApp app)) LCalcApp'Empty) ->
             LCalcAtomLiteral $ LCalcTermFromApp app -- simplify useless parens around terms
         _ ->
@@ -381,13 +381,16 @@ evaluateApp (LCalcAppLiteral atom app) = case app of
 
 
 
-
+-- TODO: simplify these (λn.λf.λx.(f (f (n f x ) ) ) ) - where we have a term made up
+-- of an application with only one element made up of an atom made up of a term
+-- we can just replace this with the inside term
 
 main :: IO ()
 main = do
     inp <- getLine
     let (Just ast) = parse inp
     let astNew = makeDeBruijn ast
+    -- print $ substitute astNew
     print ast
     putStrLn ""
     print astNew
