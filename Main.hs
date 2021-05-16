@@ -56,6 +56,8 @@ instance Show LCalcAtom where
             "(" ++ show term ++ ")"
         LCalcAtomFromString str ->
             str
+        LCalcAtomFromInt int ->
+            show int
 
 instance Show LCalcApp' where
     show app = case app of
@@ -165,6 +167,8 @@ lCalcAtom = lCalcAtomLiteral <|> LCalcAtomFromString <$> lcidP
 
 
 
+makeDeBruijn :: LCalcTerm -> LCalcTerm
+makeDeBruijn term = deBruijnTerm term []
 
 deBruijnTerm :: LCalcTerm -> [String] -> LCalcTerm
 deBruijnTerm term context = case term of
@@ -179,7 +183,7 @@ deBruijnAtom atom context = case atom of
         LCalcAtomLiteral $ deBruijnTerm term context
     LCalcAtomFromString str -> case ind of 
         Nothing -> 
-            LCalcAtomFromInt (-1)
+            LCalcAtomFromInt (-1) -- shouldn't happen if user is correct
         Just i -> 
             LCalcAtomFromInt i
         where 
@@ -197,35 +201,105 @@ deBruijnApp (LCalcAppLiteral atom app) context =
     LCalcAppLiteral (deBruijnAtom atom context) (deBruijnApp' app context)
 
 
-
--- TODO: change substitute/add a new substitute that uses new De Bruijn ints
-
+-- TODO: add a converter back to normal variable names
 
 
-substituteAtom :: String -> LCalcAtom -> LCalcAtom -> LCalcAtom
-substituteAtom str atom atom' = case atom' of
+
+
+
+-- old substitute functions that substitute based on string identifiers
+substituteTermStr :: String -> LCalcAtom -> LCalcTerm -> LCalcTerm
+substituteTermStr str atom term = case term of
+    LCalcTermFromApp app ->
+        LCalcTermFromApp $ substituteAppStr str atom app
+    LCalcTermLiteral str' term' ->
+        LCalcTermLiteral str' (substituteTermStr str atom term')
+
+substituteAtomStr :: String -> LCalcAtom -> LCalcAtom -> LCalcAtom
+substituteAtomStr str atom atom' = case atom' of
     LCalcAtomLiteral term ->
-        LCalcAtomLiteral $ substituteTerm str atom term
+        LCalcAtomLiteral $ substituteTermStr str atom term
     LCalcAtomFromString str' ->
         if str' == str then atom else atom' -- this is where we replace the occurence
 
-substituteApp' :: String -> LCalcAtom -> LCalcApp' -> LCalcApp'
-substituteApp' str atom app = case app of
+substituteApp'Str :: String -> LCalcAtom -> LCalcApp' -> LCalcApp'
+substituteApp'Str str atom app = case app of
     LCalcApp'Literal atom' app' ->
-        LCalcApp'Literal (substituteAtom str atom atom') (substituteApp' str atom app')
+        LCalcApp'Literal (substituteAtomStr str atom atom') (substituteApp'Str str atom app')
     LCalcApp'Empty ->
         app
 
-substituteApp :: String -> LCalcAtom -> LCalcApp -> LCalcApp
-substituteApp str atom (LCalcAppLiteral atom' app') =
-    LCalcAppLiteral (substituteAtom str atom atom') (substituteApp' str atom app')
+substituteAppStr :: String -> LCalcAtom -> LCalcApp -> LCalcApp
+substituteAppStr str atom (LCalcAppLiteral atom' app') =
+    LCalcAppLiteral (substituteAtomStr str atom atom') (substituteApp'Str str atom app')
 
-substituteTerm :: String -> LCalcAtom -> LCalcTerm -> LCalcTerm
-substituteTerm str atom term = case term of
+
+
+
+
+shiftTerm :: Int -> LCalcTerm -> Int -> LCalcTerm
+shiftTerm shift term depth = case term of
     LCalcTermFromApp app ->
-        LCalcTermFromApp $ substituteApp str atom app
+        LCalcTermFromApp $ shiftApp shift app depth
+    LCalcTermLiteral str term' ->
+        LCalcTermLiteral str (shiftTerm shift term' (depth + 1))
+
+shiftAtom :: Int -> LCalcAtom -> Int -> LCalcAtom
+shiftAtom shift atom depth = case atom of
+    LCalcAtomLiteral term ->
+        LCalcAtomLiteral $ shiftTerm shift term (depth + 1)
+    LCalcAtomFromInt ind -> -- should never get string
+        LCalcAtomFromInt $ -- this is where we shift
+            if ind > depth then -- if a free var (w/ respect to starting node)
+                ind + shift
+            else
+                ind
+
+shiftApp' :: Int -> LCalcApp' -> Int -> LCalcApp'
+shiftApp' shift app depth = case app of
+    LCalcApp'Literal atom' app' ->
+        LCalcApp'Literal (shiftAtom shift atom' depth) (shiftApp' shift app' depth)
+    LCalcApp'Empty ->
+        app
+
+shiftApp :: Int -> LCalcApp -> Int -> LCalcApp
+shiftApp shift (LCalcAppLiteral atom' app') depth = 
+    LCalcAppLiteral (shiftAtom shift atom' depth) (shiftApp' shift app' depth)
+
+
+
+
+
+substitute :: LCalcAtom -> LCalcTerm -> LCalcTerm
+substitute atom term = shiftTerm (-1) (substituteTerm (shiftAtom 1 atom 0) term 0) 0
+
+substituteTerm :: LCalcAtom -> LCalcTerm -> Int -> LCalcTerm
+substituteTerm atom term depth = case term of
+    LCalcTermFromApp app ->
+        LCalcTermFromApp $ substituteApp atom app depth
     LCalcTermLiteral str' term' ->
-        LCalcTermLiteral str' (substituteTerm str atom term')
+        LCalcTermLiteral str' (substituteTerm atom term' (depth + 1))
+
+substituteAtom :: LCalcAtom -> LCalcAtom -> Int -> LCalcAtom
+substituteAtom atom atom' depth = case atom' of
+    LCalcAtomLiteral term ->
+        LCalcAtomLiteral $ substituteTerm atom term (depth + 1)
+    LCalcAtomFromInt ind -> -- this is where we replace the occurence
+        if ind == depth then -- if this refers to the variable we are replacing
+            shiftAtom depth atom 0 -- shift by our current depth
+        else
+            atom'
+
+substituteApp' :: LCalcAtom -> LCalcApp' -> Int -> LCalcApp'
+substituteApp' atom app depth = case app of
+    LCalcApp'Literal atom' app' ->
+        LCalcApp'Literal (substituteAtom atom atom' depth) (substituteApp' atom app' depth)
+    LCalcApp'Empty ->
+        app
+
+substituteApp :: LCalcAtom -> LCalcApp -> Int -> LCalcApp
+substituteApp atom (LCalcAppLiteral atom' app') depth =
+    LCalcAppLiteral (substituteAtom atom atom' depth) (substituteApp' atom app' depth)
 
 
 
@@ -250,7 +324,7 @@ evaluateAtom atom = case atom of
         where
             res = evaluateTerm term
     LCalcAtomFromString str -> atom -- should never see
-    LCalcAtomFromInt int -> atom
+    LCalcAtomFromInt ind -> atom
 
 evaluateApp' :: LCalcApp' -> LCalcApp'
 evaluateApp' (LCalcApp'Literal atom app) = case app of -- input shouldn't be empty
@@ -259,7 +333,7 @@ evaluateApp' (LCalcApp'Literal atom app) = case app of -- input shouldn't be emp
     LCalcApp'Literal atom' app' ->
         case (atom, atom') of
             (LCalcAtomLiteral (LCalcTermLiteral str term), _) -> -- left is a term literal
-                evaluateApp' $ LCalcApp'Literal (LCalcAtomLiteral (substituteTerm str (evaluateAtom atom') (evaluateTerm term))) app'
+                evaluateApp' $ LCalcApp'Literal (LCalcAtomLiteral (substitute (evaluateAtom atom') (evaluateTerm term))) app'
             (_, _) -> -- left is not a term literal
                 LCalcApp'Literal atom (evaluateApp' app)
 
@@ -270,7 +344,7 @@ evaluateApp (LCalcAppLiteral atom app) = case app of
     LCalcApp'Literal atom' app' ->
         case (atom, atom') of
             (LCalcAtomLiteral (LCalcTermLiteral str term), _) -> -- left is a term literal
-                evaluateApp $ LCalcAppLiteral (LCalcAtomLiteral (substituteTerm str (evaluateAtom atom') (evaluateTerm term))) app'
+                evaluateApp $ LCalcAppLiteral (LCalcAtomLiteral (substitute (evaluateAtom atom') (evaluateTerm term))) app'
             (_, _) -> -- left is an identifier, can't simplify further
                 LCalcAppLiteral atom (evaluateApp' app)
 
@@ -282,11 +356,9 @@ main :: IO ()
 main = do
     inp <- getLine
     let (Just ast) = parse inp
-
+    let astNew = makeDeBruijn ast
     print ast
     putStrLn ""
-    print ast
+    print astNew
     putStrLn ""
-    print $ evaluateTerm ast
-    putStrLn ""
-    print $ evaluateTerm ast
+    print $ evaluateTerm astNew
