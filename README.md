@@ -18,6 +18,6 @@ I implemented a type of parser called a parser combinator, which is where you cr
 Evaluation for Lambda Calculus is relatively simple, all you do is evaluate function applications by replacing the free variables with their input.
 
 ## Plans
-* Parse an input file as input instead of through stdin. This way you can create a .lc file and then use GHC to transpile your lambda calculus code into Haskell.
-* Use De Bruijn indexing (https://en.wikipedia.org/wiki/De_Bruijn_index) to allow variable names to be reused (at the moment you need to be careful to not let variables shadow each other).
-* Add to the syntax of the language by allowing assignment, such as A = (\a. a), so that A can be reused later in the code as an alias for (\a. a).
+- [ ] Parse an input file as input instead of through stdin. This way you can create a .lc file and then use GHC to transpile your lambda calculus code into Haskell.
+- [x] Use De Bruijn indexing (https://en.wikipedia.org/wiki/De_Bruijn_index) to allow variable names to be reused (at the moment you need to be careful to not let variables shadow each other).
+- [ ] Add to the syntax of the language by allowing assignment, such as A = (\a. a), so that A can be reused later in the code as an alias for (\a. a).

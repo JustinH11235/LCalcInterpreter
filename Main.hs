@@ -46,7 +46,7 @@ data LCalcAtom =
 instance Show LCalcTerm where
     show term = case term of
         LCalcTermLiteral str term' ->
-            "\\" ++ str ++ "." ++ show term'
+            "λ" ++ str ++ "." ++ show term'
         LCalcTermFromApp app ->
             show app
 
