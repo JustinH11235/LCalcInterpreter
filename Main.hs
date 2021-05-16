@@ -1,5 +1,6 @@
 module Main where
 
+import Data.List ( elemIndex )
 import Control.Applicative ( Alternative(empty, (<|>)) )
 import Data.Char ( isAlphaNum, isSpace )
 
@@ -38,32 +39,33 @@ data LCalcApp' =
 data LCalcAtom =
     LCalcAtomLiteral LCalcTerm
     | LCalcAtomFromString String
+    | LCalcAtomFromInt Int
     deriving (Eq)
 
 
-instance Show LCalcTerm where 
+instance Show LCalcTerm where
     show term = case term of
-        LCalcTermLiteral str term' -> 
+        LCalcTermLiteral str term' ->
             "\\" ++ str ++ "." ++ show term'
-        LCalcTermFromApp app -> 
+        LCalcTermFromApp app ->
             show app
 
-instance Show LCalcAtom where 
+instance Show LCalcAtom where
     show atom = case atom of
-        LCalcAtomLiteral term -> 
+        LCalcAtomLiteral term ->
             "(" ++ show term ++ ")"
-        LCalcAtomFromString str -> 
+        LCalcAtomFromString str ->
             str
 
-instance Show LCalcApp' where 
+instance Show LCalcApp' where
     show app = case app of
-        LCalcApp'Empty -> 
+        LCalcApp'Empty ->
             ""
-        LCalcApp'Literal atom' app' -> 
+        LCalcApp'Literal atom' app' ->
             show atom' ++ " " ++ show app'
 
-instance Show LCalcApp where 
-    show (LCalcAppLiteral atom app) = 
+instance Show LCalcApp where
+    show (LCalcAppLiteral atom app) =
         show atom ++ " " ++ show app
 
 
@@ -164,15 +166,55 @@ lCalcAtom = lCalcAtomLiteral <|> LCalcAtomFromString <$> lcidP
 
 
 
+deBruijnTerm :: LCalcTerm -> [String] -> LCalcTerm
+deBruijnTerm term context = case term of
+    LCalcTermLiteral str term' -> 
+        LCalcTermLiteral str (deBruijnTerm term' (str:context))
+    LCalcTermFromApp app -> 
+        LCalcTermFromApp $ deBruijnApp app context
+
+deBruijnAtom :: LCalcAtom -> [String] -> LCalcAtom
+deBruijnAtom atom context = case atom of
+    LCalcAtomLiteral term -> 
+        LCalcAtomLiteral $ deBruijnTerm term context
+    LCalcAtomFromString str -> case ind of 
+        Nothing -> 
+            LCalcAtomFromInt (-1)
+        Just i -> 
+            LCalcAtomFromInt i
+        where 
+            ind = elemIndex str context
+
+deBruijnApp' :: LCalcApp' -> [String] -> LCalcApp'
+deBruijnApp' app context = case app of
+    LCalcApp'Empty ->
+        LCalcApp'Empty
+    LCalcApp'Literal atom' app' ->
+        LCalcApp'Literal (deBruijnAtom atom' context) (deBruijnApp' app' context)
+
+deBruijnApp :: LCalcApp -> [String] -> LCalcApp
+deBruijnApp (LCalcAppLiteral atom app) context = 
+    LCalcAppLiteral (deBruijnAtom atom context) (deBruijnApp' app context)
+
+
+
+-- TODO: change substitute/add a new substitute that uses new De Bruijn ints
+
+
+
 substituteAtom :: String -> LCalcAtom -> LCalcAtom -> LCalcAtom
 substituteAtom str atom atom' = case atom' of
-    LCalcAtomLiteral term -> LCalcAtomLiteral $ substituteTerm str atom term
-    LCalcAtomFromString str' -> if str' == str then atom else atom' -- this is where we replace the occurence
+    LCalcAtomLiteral term ->
+        LCalcAtomLiteral $ substituteTerm str atom term
+    LCalcAtomFromString str' ->
+        if str' == str then atom else atom' -- this is where we replace the occurence
 
 substituteApp' :: String -> LCalcAtom -> LCalcApp' -> LCalcApp'
 substituteApp' str atom app = case app of
-    LCalcApp'Literal atom' app' -> LCalcApp'Literal (substituteAtom str atom atom') (substituteApp' str atom app')
-    LCalcApp'Empty -> app
+    LCalcApp'Literal atom' app' ->
+        LCalcApp'Literal (substituteAtom str atom atom') (substituteApp' str atom app')
+    LCalcApp'Empty ->
+        app
 
 substituteApp :: String -> LCalcAtom -> LCalcApp -> LCalcApp
 substituteApp str atom (LCalcAppLiteral atom' app') =
@@ -180,8 +222,10 @@ substituteApp str atom (LCalcAppLiteral atom' app') =
 
 substituteTerm :: String -> LCalcAtom -> LCalcTerm -> LCalcTerm
 substituteTerm str atom term = case term of
-    LCalcTermFromApp app -> LCalcTermFromApp $ substituteApp str atom app
-    LCalcTermLiteral str' term' -> LCalcTermLiteral str' (substituteTerm str atom term')
+    LCalcTermFromApp app ->
+        LCalcTermFromApp $ substituteApp str atom app
+    LCalcTermLiteral str' term' ->
+        LCalcTermLiteral str' (substituteTerm str atom term')
 
 
 
@@ -189,21 +233,24 @@ substituteTerm str atom term = case term of
 
 evaluateTerm :: LCalcTerm -> LCalcTerm
 evaluateTerm term = case term of
-    LCalcTermLiteral str term' -> LCalcTermLiteral str (evaluateTerm term')
-    LCalcTermFromApp app -> LCalcTermFromApp $ evaluateApp app
+    LCalcTermLiteral str term' ->
+        LCalcTermLiteral str (evaluateTerm term')
+    LCalcTermFromApp app ->
+        LCalcTermFromApp $ evaluateApp app
 
 evaluateAtom :: LCalcAtom -> LCalcAtom
 evaluateAtom atom = case atom of
     LCalcAtomLiteral term -> case res of
-        LCalcTermFromApp (LCalcAppLiteral (LCalcAtomFromString str) LCalcApp'Empty) ->
-            LCalcAtomFromString str -- simplify identifiers wrapped in an atom
+        LCalcTermFromApp (LCalcAppLiteral (LCalcAtomFromInt int) LCalcApp'Empty) ->
+            LCalcAtomFromInt int -- simplify identifiers wrapped in an atom
         LCalcTermFromApp (LCalcAppLiteral (LCalcAtomLiteral (LCalcTermFromApp app)) LCalcApp'Empty) ->
             LCalcAtomLiteral $ LCalcTermFromApp app -- simplify useless parens around terms
         _ ->
             LCalcAtomLiteral res
         where
             res = evaluateTerm term
-    LCalcAtomFromString str -> atom
+    LCalcAtomFromString str -> atom -- should never see
+    LCalcAtomFromInt int -> atom
 
 evaluateApp' :: LCalcApp' -> LCalcApp'
 evaluateApp' (LCalcApp'Literal atom app) = case app of -- input shouldn't be empty
