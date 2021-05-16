@@ -1,6 +1,5 @@
 module Main where
 
-import Control.Monad ( join )
 import Control.Applicative ( Alternative(empty, (<|>)) )
 import Data.Char ( isAlphaNum, isSpace )
 
@@ -44,23 +43,28 @@ data LCalcAtom =
 
 instance Show LCalcTerm where 
     show term = case term of
-        LCalcTermLiteral str term' ->
+        LCalcTermLiteral str term' -> 
             "\\" ++ str ++ "." ++ show term'
-        LCalcTermFromApp app ->
+        LCalcTermFromApp app -> 
             show app
 
 instance Show LCalcAtom where 
     show atom = case atom of
-        LCalcAtomLiteral term -> "(" ++ show term ++ ")"
-        LCalcAtomFromString str -> str
+        LCalcAtomLiteral term -> 
+            "(" ++ show term ++ ")"
+        LCalcAtomFromString str -> 
+            str
 
 instance Show LCalcApp' where 
     show app = case app of
-        LCalcApp'Empty -> ""
-        LCalcApp'Literal atom' app' -> show atom' ++ " " ++ show app'
+        LCalcApp'Empty -> 
+            ""
+        LCalcApp'Literal atom' app' -> 
+            show atom' ++ " " ++ show app'
 
 instance Show LCalcApp where 
-    show (LCalcAppLiteral atom app) = show atom ++ " " ++ show app
+    show (LCalcAppLiteral atom app) = 
+        show atom ++ " " ++ show app
 
 
 newtype Parser a = Parser
