@@ -188,6 +188,8 @@ deBruijnAtom atom context = case atom of
             LCalcAtomFromInt i
         where 
             ind = elemIndex str context
+    LCalcAtomFromInt ind ->
+        atom
 
 deBruijnApp' :: LCalcApp' -> [String] -> LCalcApp'
 deBruijnApp' app context = case app of
@@ -202,6 +204,35 @@ deBruijnApp (LCalcAppLiteral atom app) context =
 
 
 -- TODO: add a converter back to normal variable names
+makeNormal :: LCalcTerm -> LCalcTerm
+makeNormal term = normalizeTerm term []
+
+normalizeTerm :: LCalcTerm -> [String] -> LCalcTerm
+normalizeTerm term context = case term of
+    LCalcTermLiteral str term' -> 
+        LCalcTermLiteral str (normalizeTerm term' (str:context))
+    LCalcTermFromApp app -> 
+        LCalcTermFromApp $ normalizeApp app context
+
+normalizeAtom :: LCalcAtom -> [String] -> LCalcAtom
+normalizeAtom atom context = case atom of
+    LCalcAtomLiteral term -> 
+        LCalcAtomLiteral $ normalizeTerm term context
+    LCalcAtomFromString str -> 
+        atom
+    LCalcAtomFromInt ind -> 
+        LCalcAtomFromString $ context !! ind
+
+normalizeApp' :: LCalcApp' -> [String] -> LCalcApp'
+normalizeApp' app context = case app of
+    LCalcApp'Empty ->
+        LCalcApp'Empty
+    LCalcApp'Literal atom' app' ->
+        LCalcApp'Literal (normalizeAtom atom' context) (normalizeApp' app' context)
+
+normalizeApp :: LCalcApp -> [String] -> LCalcApp
+normalizeApp (LCalcAppLiteral atom app) context = 
+    LCalcAppLiteral (normalizeAtom atom context) (normalizeApp' app context)
 
 
 
@@ -362,3 +393,4 @@ main = do
     print astNew
     putStrLn ""
     print $ evaluateTerm astNew
+    print $ makeNormal $ evaluateTerm astNew
