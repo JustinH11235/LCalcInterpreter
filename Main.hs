@@ -19,7 +19,7 @@ import Data.Char ( isAlphaNum, isSpace )
 data LCalcTerm =
     LCalcTermFromApp LCalcApp |
     LCalcTermLiteral String LCalcTerm
-    deriving (Show, Eq)
+    deriving (Eq)
 
 -- removed because left recursion will loop, even though we want left recursion when we execute
 -- data LCalcApp =
@@ -29,17 +29,38 @@ data LCalcTerm =
 
 data LCalcApp =
     LCalcAppLiteral LCalcAtom LCalcApp'
-    deriving (Show, Eq)
+    deriving (Eq)
 
 data LCalcApp' =
     LCalcApp'Literal LCalcAtom LCalcApp'
     | LCalcApp'Empty
-    deriving (Show, Eq)
+    deriving (Eq)
 
 data LCalcAtom =
     LCalcAtomLiteral LCalcTerm
     | LCalcAtomFromString String
-    deriving (Show, Eq)
+    deriving (Eq)
+
+
+instance Show LCalcTerm where 
+    show term = case term of
+        LCalcTermLiteral str term' ->
+            "\\" ++ str ++ "." ++ show term'
+        LCalcTermFromApp app ->
+            show app
+
+instance Show LCalcAtom where 
+    show atom = case atom of
+        LCalcAtomLiteral term -> "(" ++ show term ++ ")"
+        LCalcAtomFromString str -> str
+
+instance Show LCalcApp' where 
+    show app = case app of
+        LCalcApp'Empty -> ""
+        LCalcApp'Literal atom' app' -> show atom' ++ " " ++ show app'
+
+instance Show LCalcApp where 
+    show (LCalcAppLiteral atom app) = show atom ++ " " ++ show app
 
 
 newtype Parser a = Parser
@@ -65,6 +86,9 @@ instance Alternative Parser where
     empty = Parser $ const Nothing
     (<|>) (Parser p1) (Parser p2) =
         Parser $ \input -> p1 input <|> p2 input
+
+
+
 
 
 charP :: Char -> Parser Char
@@ -100,6 +124,9 @@ throwAwayChar :: Char -> Parser Char
 throwAwayChar c = whiteSpace *> charP c
 
 
+
+
+
 parse :: String -> Maybe LCalcTerm
 parse inp = do
     let res = runParser lCalcTerm inp
@@ -130,6 +157,9 @@ lCalcAtom :: Parser LCalcAtom
 lCalcAtom = lCalcAtomLiteral <|> LCalcAtomFromString <$> lcidP
 
 
+
+
+
 substituteAtom :: String -> LCalcAtom -> LCalcAtom -> LCalcAtom
 substituteAtom str atom atom' = case atom' of
     LCalcAtomLiteral term -> LCalcAtomLiteral $ substituteTerm str atom term
@@ -148,6 +178,9 @@ substituteTerm :: String -> LCalcAtom -> LCalcTerm -> LCalcTerm
 substituteTerm str atom term = case term of
     LCalcTermFromApp app -> LCalcTermFromApp $ substituteApp str atom app
     LCalcTermLiteral str' term' -> LCalcTermLiteral str' (substituteTerm str atom term')
+
+
+
 
 
 evaluateTerm :: LCalcTerm -> LCalcTerm
@@ -191,26 +224,6 @@ evaluateApp (LCalcAppLiteral atom app) = case app of
                 LCalcAppLiteral atom (evaluateApp' app)
 
 
--- toLCalcString :: Maybe LCalcTerm -> String
--- toLCalcString = maybe "Nothing" termToLCalcString
-
-termToLCalcString :: LCalcTerm -> String
-termToLCalcString term = case term of
-    LCalcTermLiteral str term' -> "\\" ++ str ++ "." ++ termToLCalcString term'
-    LCalcTermFromApp app -> appToLCalcString app
-
-atomToLCalcString :: LCalcAtom -> String
-atomToLCalcString atom = case atom of
-    LCalcAtomLiteral term -> "(" ++ termToLCalcString term ++ ")"
-    LCalcAtomFromString str -> str
-
-app'ToLCalcString :: LCalcApp' -> String
-app'ToLCalcString app = case app of
-    LCalcApp'Empty -> ""
-    LCalcApp'Literal atom' app' -> atomToLCalcString atom' ++ " " ++ app'ToLCalcString app'
-
-appToLCalcString :: LCalcApp -> String
-appToLCalcString (LCalcAppLiteral atom app) = atomToLCalcString atom ++ " " ++ app'ToLCalcString app
 
 
 
@@ -221,8 +234,8 @@ main = do
 
     print ast
     putStrLn ""
-    putStrLn $ termToLCalcString ast
+    print ast
     putStrLn ""
     print $ evaluateTerm ast
     putStrLn ""
-    putStrLn $ termToLCalcString $ evaluateTerm ast
+    print $ evaluateTerm ast
