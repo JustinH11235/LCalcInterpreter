@@ -362,8 +362,16 @@ evaluateAtom atom = case atom of
             LCalcAtomLiteral res
         where
             res = evaluateTerm term
-    LCalcAtomFromString str -> atom -- should never see
+    LCalcAtomFromString str -> atom -- should never see if using De Bruijn
     LCalcAtomFromInt ind -> atom
+
+-- helper function that evaluateApp(') uses to simplify remainder of applications after finding a nonvalue
+evaluateApp'NoSub :: LCalcApp' -> LCalcApp'
+evaluateApp'NoSub app = case app of
+    LCalcApp'Empty -> 
+        app
+    LCalcApp'Literal atom' app' ->
+        LCalcApp'Literal (evaluateAtom atom') (evaluateApp'NoSub app')
 
 evaluateApp' :: LCalcApp' -> LCalcApp'
 evaluateApp' (LCalcApp'Literal atom app) = case app of -- input shouldn't be empty
@@ -372,9 +380,9 @@ evaluateApp' (LCalcApp'Literal atom app) = case app of -- input shouldn't be emp
     LCalcApp'Literal atom' app' ->
         case evaluateAtom atom of
             LCalcAtomLiteral (LCalcTermLiteral str term) -> -- left is a term literal
-                evaluateApp' $ LCalcApp'Literal (LCalcAtomLiteral (substitute (evaluateAtom atom') (evaluateTerm term))) app'
-            _ -> -- left is not a term literal
-                LCalcApp'Literal atom (evaluateApp' app)
+                evaluateApp' $ LCalcApp'Literal (LCalcAtomLiteral (substitute atom' term)) app'
+            _ -> -- left is an identifier, can't simplify any further down the chain due to implicit parens (left association)
+                LCalcApp'Literal (evaluateAtom atom) (evaluateApp'NoSub app)
 
 evaluateApp :: LCalcApp -> LCalcApp
 evaluateApp (LCalcAppLiteral atom app) = case app of
@@ -383,9 +391,9 @@ evaluateApp (LCalcAppLiteral atom app) = case app of
     LCalcApp'Literal atom' app' ->
         case evaluateAtom atom of
             LCalcAtomLiteral (LCalcTermLiteral str term) -> -- left is a term literal
-                evaluateApp $ LCalcAppLiteral (LCalcAtomLiteral (substitute (evaluateAtom atom') (evaluateTerm term))) app'
-            _ -> -- left is an identifier, can't simplify further
-                LCalcAppLiteral atom (evaluateApp' app)
+                evaluateApp $ LCalcAppLiteral (LCalcAtomLiteral (substitute atom' term)) app'
+            _ -> -- left is an identifier, can't simplify any further down the chain due to implicit parens (left association)
+                LCalcAppLiteral (evaluateAtom atom) (evaluateApp'NoSub app)
 
 
 
