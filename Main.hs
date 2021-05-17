@@ -344,10 +344,10 @@ evaluateTerm term = case term of
     LCalcTermLiteral str term' ->
         LCalcTermLiteral str (evaluateTerm term')
     LCalcTermFromApp app -> case res of 
-        LCalcAppLiteral (LCalcAtomLiteral term) LCalcApp'Empty ->
+        LCalcAppLiteral (LCalcAtomLiteral term) LCalcApp'Empty -> -- simply useless parens around term
             term
         _ -> 
-            LCalcTermFromApp $ res
+            LCalcTermFromApp res
         where 
             res = evaluateApp app
 
@@ -357,7 +357,7 @@ evaluateAtom atom = case atom of
         LCalcTermFromApp (LCalcAppLiteral (LCalcAtomFromInt ind) LCalcApp'Empty) ->
             LCalcAtomFromInt ind -- simplify identifiers wrapped in an atom
         LCalcTermFromApp (LCalcAppLiteral (LCalcAtomLiteral (LCalcTermFromApp app)) LCalcApp'Empty) ->
-            LCalcAtomLiteral $ LCalcTermFromApp app -- simplify useless parens around terms
+            LCalcAtomLiteral $ LCalcTermFromApp app -- simplify useless parens around terms inside atoms
         _ ->
             LCalcAtomLiteral res
         where
@@ -370,10 +370,10 @@ evaluateApp' (LCalcApp'Literal atom app) = case app of -- input shouldn't be emp
     LCalcApp'Empty -> -- if the second part is empty
         LCalcApp'Literal (evaluateAtom atom) app
     LCalcApp'Literal atom' app' ->
-        case (atom, atom') of
-            (LCalcAtomLiteral (LCalcTermLiteral str term), _) -> -- left is a term literal
+        case evaluateAtom atom of
+            LCalcAtomLiteral (LCalcTermLiteral str term) -> -- left is a term literal
                 evaluateApp' $ LCalcApp'Literal (LCalcAtomLiteral (substitute (evaluateAtom atom') (evaluateTerm term))) app'
-            (_, _) -> -- left is not a term literal
+            _ -> -- left is not a term literal
                 LCalcApp'Literal atom (evaluateApp' app)
 
 evaluateApp :: LCalcApp -> LCalcApp
@@ -381,10 +381,10 @@ evaluateApp (LCalcAppLiteral atom app) = case app of
     LCalcApp'Empty -> -- if the second part is empty
         LCalcAppLiteral (evaluateAtom atom) app
     LCalcApp'Literal atom' app' ->
-        case (atom, atom') of
-            (LCalcAtomLiteral (LCalcTermLiteral str term), _) -> -- left is a term literal
+        case evaluateAtom atom of
+            LCalcAtomLiteral (LCalcTermLiteral str term) -> -- left is a term literal
                 evaluateApp $ LCalcAppLiteral (LCalcAtomLiteral (substitute (evaluateAtom atom') (evaluateTerm term))) app'
-            (_, _) -> -- left is an identifier, can't simplify further
+            _ -> -- left is an identifier, can't simplify further
                 LCalcAppLiteral atom (evaluateApp' app)
 
 
