@@ -340,8 +340,13 @@ evaluateTerm :: LCalcTerm -> LCalcTerm
 evaluateTerm term = case term of
     LCalcTermLiteral str term' ->
         LCalcTermLiteral str (evaluateTerm term')
-    LCalcTermFromApp app ->
-        LCalcTermFromApp $ evaluateApp app
+    LCalcTermFromApp app -> case res of 
+        LCalcAppLiteral (LCalcAtomLiteral term) LCalcApp'Empty ->
+            term
+        _ -> 
+            LCalcTermFromApp $ res
+        where 
+            res = evaluateApp app
 
 evaluateAtom :: LCalcAtom -> LCalcAtom
 evaluateAtom atom = case atom of
