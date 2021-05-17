@@ -19,7 +19,7 @@ import Data.Char ( isAlphaNum, isSpace )
 data LCalcTerm =
     LCalcTermFromApp LCalcApp |
     LCalcTermLiteral String LCalcTerm
-    deriving (Eq)
+    deriving (Show, Eq)
 
 -- removed because left recursion will loop, even though we want left recursion when we execute
 -- data LCalcApp =
@@ -29,46 +29,46 @@ data LCalcTerm =
 
 data LCalcApp =
     LCalcAppLiteral LCalcAtom LCalcApp'
-    deriving (Eq)
+    deriving (Show, Eq)
 
 data LCalcApp' =
     LCalcApp'Literal LCalcAtom LCalcApp'
     | LCalcApp'Empty
-    deriving (Eq)
+    deriving (Show, Eq)
 
 data LCalcAtom =
     LCalcAtomLiteral LCalcTerm
     | LCalcAtomFromString String
     | LCalcAtomFromInt Int
-    deriving (Eq)
+    deriving (Show, Eq)
 
 
-instance Show LCalcTerm where
-    show term = case term of
-        LCalcTermLiteral str term' ->
-            "λ" ++ str ++ "." ++ show term'
-        LCalcTermFromApp app ->
-            show app
+termToString :: LCalcTerm -> String
+termToString term = case term of
+    LCalcTermLiteral str term' ->
+        "λ" ++ str ++ "." ++ termToString term'
+    LCalcTermFromApp app ->
+        appToString app
 
-instance Show LCalcAtom where
-    show atom = case atom of
-        LCalcAtomLiteral term ->
-            "(" ++ show term ++ ")"
-        LCalcAtomFromString str ->
-            str
-        LCalcAtomFromInt int ->
-            show int
+atomToString :: LCalcAtom -> String
+atomToString atom = case atom of
+    LCalcAtomLiteral term ->
+        "(" ++ termToString term ++ ")"
+    LCalcAtomFromString str ->
+        str
+    LCalcAtomFromInt int ->
+        show int
 
-instance Show LCalcApp' where
-    show app = case app of
-        LCalcApp'Empty ->
-            ""
-        LCalcApp'Literal atom' app' ->
-            show atom' ++ " " ++ show app'
+app'ToString :: LCalcApp' -> String
+app'ToString app = case app of
+    LCalcApp'Empty ->
+        ""
+    LCalcApp'Literal atom' app' ->
+        atomToString atom' ++ " " ++ app'ToString app'
 
-instance Show LCalcApp where
-    show (LCalcAppLiteral atom app) =
-        show atom ++ " " ++ show app
+appToString :: LCalcApp -> String
+appToString (LCalcAppLiteral atom app) =
+    atomToString atom ++ " " ++ app'ToString app
 
 
 newtype Parser a = Parser
@@ -396,10 +396,10 @@ main = do
     inp <- getLine
     let (Just ast) = parse inp
     let astNew = makeDeBruijn ast
-    
-    print ast
+
+    putStrLn $ termToString  ast
     putStrLn ""
-    print astNew
+    putStrLn $ termToString astNew
     putStrLn ""
-    print $ evaluateTerm astNew
-    print $ makeNormal $ evaluateTerm astNew
+    putStrLn $ termToString $ evaluateTerm astNew
+    putStrLn $ termToString $ makeNormal $ evaluateTerm astNew
