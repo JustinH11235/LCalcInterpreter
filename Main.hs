@@ -123,13 +123,16 @@ spanPOptional f =
         in Just (token, rest)
 
 lcidP :: Parser String
-lcidP = whiteSpace *> spanP isAlphaNum
+lcidP = whiteSpace *> spanP (\c -> isAlphaNum c && c /= 'λ')
 
 whiteSpace :: Parser String
 whiteSpace = spanPOptional isSpace
 
 throwAwayChar :: Char -> Parser Char
 throwAwayChar c = whiteSpace *> charP c
+
+throwAwayString :: String -> Parser String
+throwAwayString s = whiteSpace *> stringP s
 
 
 
@@ -144,7 +147,7 @@ parse inp = do
 
 lCalcTermLiteral :: Parser LCalcTerm -- \foo. foo bar   LAMBDA LCID DOT term
 -- lCalcTermLiteral = uncurry LCalcTermLiteral <$> ((,) <$> (throwAwayChar '\\' *> lcidP) <*> (throwAwayChar '.' *> lCalcTerm))
-lCalcTermLiteral = LCalcTermLiteral <$> (throwAwayChar '\\' *> lcidP) <*> (throwAwayChar '.' *> lCalcTerm)
+lCalcTermLiteral = LCalcTermLiteral <$> ((throwAwayChar '\\' <|> throwAwayChar 'λ') *> lcidP) <*> (throwAwayChar '.' *> lCalcTerm)
 
 lCalcTerm :: Parser LCalcTerm
 lCalcTerm = LCalcTermFromApp <$> lCalcApp <|> lCalcTermLiteral
@@ -386,16 +389,14 @@ evaluateApp (LCalcAppLiteral atom app) = case app of
 
 
 
--- TODO: simplify these (λn.λf.λx.(f (f (n f x ) ) ) ) - where we have a term made up
--- of an application with only one element made up of an atom made up of a term
--- we can just replace this with the inside term
+
 
 main :: IO ()
 main = do
     inp <- getLine
     let (Just ast) = parse inp
     let astNew = makeDeBruijn ast
-    -- print $ substitute astNew
+    
     print ast
     putStrLn ""
     print astNew
