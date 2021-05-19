@@ -123,7 +123,7 @@ spanPOptional f =
         in Just (token, rest)
 
 lcidP :: Parser String
-lcidP = whiteSpace *> spanP (\c -> isAlphaNum c && c /= 'λ')
+lcidP = whiteSpace *> spanP (\c -> c == '_' || (isAlphaNum c && c /= 'λ'))
 
 whiteSpace :: Parser String
 whiteSpace = spanPOptional isSpace
