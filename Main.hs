@@ -124,7 +124,7 @@ spanPOptional f =
         in Just (token, rest)
 
 lcidP :: Parser String
-lcidP = whiteSpace *> spanP (\c -> c == '_' || (isAlphaNum c && c /= 'λ'))
+lcidP = whiteSpace *> spanP (\c -> c == '_' || c == '\'' || (isAlphaNum c && c /= 'λ'))
 
 whiteSpace :: Parser String
 whiteSpace = spanPOptional isSpace
@@ -143,15 +143,15 @@ parse :: String -> Maybe LCalcTerm
 parse inp = do
     let res = runParser (lCalcTerm <* whiteSpace) inp
     case res of
-        Just (term, leftover) -> 
-            case leftover of 
-                "" -> 
+        Just (term, leftover) ->
+            case leftover of
+                "" ->
                     Just term
-                '#':_ -> 
+                '#':_ -> -- leftover is a comment
                     Just term
-                _ -> 
+                _ ->
                     Nothing
-        Nothing -> 
+        Nothing ->
             Nothing
 
 lCalcTermLiteral :: Parser LCalcTerm -- \foo. foo bar   LAMBDA LCID DOT term
@@ -178,7 +178,7 @@ lCalcAtom = lCalcAtomLiteral <|> LCalcAtomFromString <$> lcidP
 
 
 
-
+-- Convert AST of named identifiers to De Bruijn indexed identifiers
 makeDeBruijn :: LCalcTerm -> LCalcTerm
 makeDeBruijn term = deBruijnTerm term []
 
@@ -215,13 +215,36 @@ deBruijnApp (LCalcAppLiteral atom app) context =
     LCalcAppLiteral (deBruijnAtom atom context) (deBruijnApp' app context)
 
 
+-- Version of unusedIdentifier which adds on ' until it finds an available name
+unusedIdentifierWith' :: String -> [String] -> String
+unusedIdentifierWith' str context =
+    if str `elem` context then -- if we already have a variable bound of this name
+        unusedIdentifier (str ++ "'") context -- add on a '
+    else
+        str
+
+unusedIdentifier :: String -> [String] -> String
+unusedIdentifier str context
+    | str `elem` context = unusedIdentifier' str 1 context
+    | otherwise = str
+
+unusedIdentifier' :: String -> Int -> [String] -> String
+unusedIdentifier' str num context =
+    if (str ++ show num) `elem` context then -- if we already have a variable bound of this name
+        unusedIdentifier' str (num + 1) context -- add to num
+    else
+        str ++ show num
+
+-- Convert AST of De Bruijn indexed identifiers to named identifiers
 makeNormal :: LCalcTerm -> LCalcTerm
 makeNormal term = normalizeTerm term []
 
 normalizeTerm :: LCalcTerm -> [String] -> LCalcTerm
 normalizeTerm term context = case term of
     LCalcTermLiteral str term' ->
-        LCalcTermLiteral str (normalizeTerm term' (str:context))
+        LCalcTermLiteral newStr (normalizeTerm term' (newStr:context))
+        where
+            newStr = unusedIdentifier str context
     LCalcTermFromApp app ->
         LCalcTermFromApp $ normalizeApp app context
 
