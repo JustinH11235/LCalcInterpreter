@@ -1,5 +1,6 @@
 module Main where
 
+import System.Environment ( getArgs )
 import Data.List ( elemIndex )
 import Control.Applicative ( Alternative(empty, (<|>)) )
 import Data.Char ( isAlphaNum, isSpace )
@@ -175,21 +176,21 @@ makeDeBruijn term = deBruijnTerm term []
 
 deBruijnTerm :: LCalcTerm -> [String] -> LCalcTerm
 deBruijnTerm term context = case term of
-    LCalcTermLiteral str term' -> 
+    LCalcTermLiteral str term' ->
         LCalcTermLiteral str (deBruijnTerm term' (str:context))
-    LCalcTermFromApp app -> 
+    LCalcTermFromApp app ->
         LCalcTermFromApp $ deBruijnApp app context
 
 deBruijnAtom :: LCalcAtom -> [String] -> LCalcAtom
 deBruijnAtom atom context = case atom of
-    LCalcAtomLiteral term -> 
+    LCalcAtomLiteral term ->
         LCalcAtomLiteral $ deBruijnTerm term context
-    LCalcAtomFromString str -> case ind of 
-        Nothing -> 
+    LCalcAtomFromString str -> case ind of
+        Nothing ->
             LCalcAtomFromInt (-1) -- shouldn't happen if user is correct
-        Just i -> 
+        Just i ->
             LCalcAtomFromInt i
-        where 
+        where
             ind = elemIndex str context
     LCalcAtomFromInt ind ->
         atom
@@ -202,7 +203,7 @@ deBruijnApp' app context = case app of
         LCalcApp'Literal (deBruijnAtom atom' context) (deBruijnApp' app' context)
 
 deBruijnApp :: LCalcApp -> [String] -> LCalcApp
-deBruijnApp (LCalcAppLiteral atom app) context = 
+deBruijnApp (LCalcAppLiteral atom app) context =
     LCalcAppLiteral (deBruijnAtom atom context) (deBruijnApp' app context)
 
 
@@ -212,18 +213,18 @@ makeNormal term = normalizeTerm term []
 
 normalizeTerm :: LCalcTerm -> [String] -> LCalcTerm
 normalizeTerm term context = case term of
-    LCalcTermLiteral str term' -> 
+    LCalcTermLiteral str term' ->
         LCalcTermLiteral str (normalizeTerm term' (str:context))
-    LCalcTermFromApp app -> 
+    LCalcTermFromApp app ->
         LCalcTermFromApp $ normalizeApp app context
 
 normalizeAtom :: LCalcAtom -> [String] -> LCalcAtom
 normalizeAtom atom context = case atom of
-    LCalcAtomLiteral term -> 
+    LCalcAtomLiteral term ->
         LCalcAtomLiteral $ normalizeTerm term context
-    LCalcAtomFromString str -> 
+    LCalcAtomFromString str ->
         atom
-    LCalcAtomFromInt ind -> 
+    LCalcAtomFromInt ind ->
         LCalcAtomFromString $ context !! ind
 
 normalizeApp' :: LCalcApp' -> [String] -> LCalcApp'
@@ -234,7 +235,7 @@ normalizeApp' app context = case app of
         LCalcApp'Literal (normalizeAtom atom' context) (normalizeApp' app' context)
 
 normalizeApp :: LCalcApp -> [String] -> LCalcApp
-normalizeApp (LCalcAppLiteral atom app) context = 
+normalizeApp (LCalcAppLiteral atom app) context =
     LCalcAppLiteral (normalizeAtom atom context) (normalizeApp' app context)
 
 
@@ -297,7 +298,7 @@ shiftApp' shift app depth = case app of
         app
 
 shiftApp :: Int -> LCalcApp -> Int -> LCalcApp
-shiftApp shift (LCalcAppLiteral atom' app') depth = 
+shiftApp shift (LCalcAppLiteral atom' app') depth =
     LCalcAppLiteral (shiftAtom shift atom' depth) (shiftApp' shift app' depth)
 
 
@@ -343,12 +344,12 @@ evaluateTerm :: LCalcTerm -> LCalcTerm
 evaluateTerm term = case term of
     LCalcTermLiteral str term' ->
         LCalcTermLiteral str (evaluateTerm term')
-    LCalcTermFromApp app -> case res of 
+    LCalcTermFromApp app -> case res of
         LCalcAppLiteral (LCalcAtomLiteral term) LCalcApp'Empty -> -- simply useless parens around term
             term
-        _ -> 
+        _ ->
             LCalcTermFromApp res
-        where 
+        where
             res = evaluateApp app
 
 evaluateAtom :: LCalcAtom -> LCalcAtom
@@ -368,7 +369,7 @@ evaluateAtom atom = case atom of
 -- helper function that evaluateApp(') uses to simplify remainder of applications after finding a nonvalue
 evaluateApp'NoSub :: LCalcApp' -> LCalcApp'
 evaluateApp'NoSub app = case app of
-    LCalcApp'Empty -> 
+    LCalcApp'Empty ->
         app
     LCalcApp'Literal atom' app' ->
         LCalcApp'Literal (evaluateAtom atom') (evaluateApp'NoSub app')
@@ -398,16 +399,34 @@ evaluateApp (LCalcAppLiteral atom app) = case app of
 
 
 
+runLine :: String -> Int -> IO ()
+runLine line lineNum = do
+    let parsed = parse line
+    case parsed of
+        Just ast -> do
+            let astNew = makeDeBruijn ast
+
+            putStrLn $ termToString ast
+            putStrLn ""
+            putStrLn $ termToString astNew
+            putStrLn ""
+            putStrLn $ termToString $ evaluateTerm astNew
+            putStrLn $ termToString $ makeNormal $ evaluateTerm astNew
+        Nothing ->
+            error $ "Syntax error on line " ++ show lineNum ++ "."
+
+runFile :: FilePath -> IO ()
+runFile path = do
+    input <- lines <$> readFile path
+
+    foldl (>>) (return ()) (zipWith runLine input [1..])
 
 main :: IO ()
 main = do
-    inp <- getLine
-    let (Just ast) = parse inp
-    let astNew = makeDeBruijn ast
+    args <- getArgs
 
-    putStrLn $ termToString  ast
-    putStrLn ""
-    putStrLn $ termToString astNew
-    putStrLn ""
-    putStrLn $ termToString $ evaluateTerm astNew
-    putStrLn $ termToString $ makeNormal $ evaluateTerm astNew
+    case args of
+        [arg] ->
+            runFile $ head args
+        _ ->
+            error "Incorrect number of arguments; Program accepts one command line argument."
