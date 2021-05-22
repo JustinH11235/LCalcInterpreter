@@ -141,10 +141,18 @@ throwAwayString s = whiteSpace *> stringP s
 
 parse :: String -> Maybe LCalcTerm
 parse inp = do
-    let res = runParser lCalcTerm inp
+    let res = runParser (lCalcTerm <* whiteSpace) inp
     case res of
-        Just (term, leftover) -> Just term
-        Nothing -> Nothing
+        Just (term, leftover) -> 
+            case leftover of 
+                "" -> 
+                    Just term
+                '#':_ -> 
+                    Just term
+                _ -> 
+                    Nothing
+        Nothing -> 
+            Nothing
 
 lCalcTermLiteral :: Parser LCalcTerm -- \foo. foo bar   LAMBDA LCID DOT term
 -- lCalcTermLiteral = uncurry LCalcTermLiteral <$> ((,) <$> (throwAwayChar '\\' *> lcidP) <*> (throwAwayChar '.' *> lCalcTerm))
@@ -207,7 +215,6 @@ deBruijnApp (LCalcAppLiteral atom app) context =
     LCalcAppLiteral (deBruijnAtom atom context) (deBruijnApp' app context)
 
 
--- TODO: add a converter back to normal variable names
 makeNormal :: LCalcTerm -> LCalcTerm
 makeNormal term = normalizeTerm term []
 
