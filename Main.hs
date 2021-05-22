@@ -124,7 +124,7 @@ spanPOptional f =
         in Just (token, rest)
 
 lcidP :: Parser String
-lcidP = whiteSpace *> spanP (\c -> c == '_' || c == '\'' || (isAlphaNum c && c /= 'λ'))
+lcidP = whiteSpace *> spanP (\c -> c == '_' || (isAlphaNum c && c /= 'λ'))
 
 whiteSpace :: Parser String
 whiteSpace = spanPOptional isSpace
@@ -216,12 +216,12 @@ deBruijnApp (LCalcAppLiteral atom app) context =
 
 
 -- Version of unusedIdentifier which adds on ' until it finds an available name
-unusedIdentifierWith' :: String -> [String] -> String
-unusedIdentifierWith' str context =
-    if str `elem` context then -- if we already have a variable bound of this name
-        unusedIdentifier (str ++ "'") context -- add on a '
-    else
-        str
+-- unusedIdentifierWith' :: String -> [String] -> String
+-- unusedIdentifierWith' str context =
+--     if str `elem` context then -- if we already have a variable bound of this name
+--         unusedIdentifier (str ++ "'") context -- add on a '
+--     else
+--         str
 
 unusedIdentifier :: String -> [String] -> String
 unusedIdentifier str context
