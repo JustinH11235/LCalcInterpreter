@@ -531,8 +531,10 @@ stdLibStrings = [ -- IMPORTANT: functions must be defined before they are used i
     ("MAXIMUM_HELPER", "(λr.λl.l (λv.λn.λ_.MAX v (r n)) 0)"),
     ("MAXIMUM", "(Y MAXIMUM_HELPER)"),
 
-    ("DIV_HELPER", "(λr.λm.λn.λf.λx.(LT m n) (0 f x) (f (r (SUB m n) n f x)))"),
-    ("DIV", "(Y DIV_HELPER)")
+    ("DIV_HELPER", "(λr.λm.λn.(LT m n) 0 (f (r (SUB m n) n)))"),
+    ("DIV", "(Y DIV_HELPER)"),
+    ("MOD_HELPER", "(λr.λm.λn.(LT m n) m (r (SUB m n) n))"),
+    ("MOD", "(Y MOD_HELPER)")
     ]
 
 stdlib :: [(String, LCalcAtom)]
