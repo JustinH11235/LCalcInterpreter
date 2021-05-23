@@ -442,6 +442,18 @@ evaluateApp (LCalcAppLiteral atom app) = case app of
 
 
 
+app'FromIntLiteral :: Int -> LCalcApp'
+app'FromIntLiteral 0 = LCalcApp'Literal (LCalcAtomFromString "x") LCalcApp'Empty
+app'FromIntLiteral left = LCalcApp'Literal (LCalcAtomFromString "f") (app'FromIntLiteral $ left - 1)
+
+
+appFromIntLiteral :: Int -> LCalcApp
+appFromIntLiteral 0 = LCalcAppLiteral (LCalcAtomFromString "x") LCalcApp'Empty
+appFromIntLiteral left = LCalcAppLiteral (LCalcAtomFromString "f") (app'FromIntLiteral $ left - 1)
+
+atomFromIntLiteral :: Int -> LCalcAtom
+atomFromIntLiteral left = LCalcAtomLiteral $ LCalcTermLiteral "f" (LCalcTermLiteral "x" (LCalcTermFromApp $ appFromIntLiteral left))
+
 stdLibStrings :: [(String, String)]
 stdLibStrings = [ -- IMPORTANT: functions must be defined before they are used in another
     ("SUCC", "(λn.λf.λx.f (n f x))"), 
