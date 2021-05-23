@@ -4,6 +4,7 @@ import System.Environment ( getArgs )
 import Data.List ( elemIndex )
 import Control.Applicative ( Alternative(empty, (<|>)) )
 import Data.Char ( isAlphaNum, isAlpha, isLower, isSpace, isSymbol, isAsciiLower, isAscii )
+import Text.Read
 
 -- GRAMMAR:
 -- term ::= application
@@ -442,17 +443,44 @@ evaluateApp (LCalcAppLiteral atom app) = case app of
 
 
 
-app'FromIntLiteral :: Int -> LCalcApp'
-app'FromIntLiteral 0 = LCalcApp'Literal (LCalcAtomFromString "x") LCalcApp'Empty
-app'FromIntLiteral left = LCalcApp'Literal (LCalcAtomFromString "f") (app'FromIntLiteral $ left - 1)
-
 
 appFromIntLiteral :: Int -> LCalcApp
 appFromIntLiteral 0 = LCalcAppLiteral (LCalcAtomFromString "x") LCalcApp'Empty
-appFromIntLiteral left = LCalcAppLiteral (LCalcAtomFromString "f") (app'FromIntLiteral $ left - 1)
+appFromIntLiteral left = LCalcAppLiteral (LCalcAtomFromString "f") (LCalcApp'Literal (LCalcAtomLiteral $ LCalcTermFromApp $ appFromIntLiteral $ left - 1) LCalcApp'Empty)
 
 atomFromIntLiteral :: Int -> LCalcAtom
 atomFromIntLiteral left = LCalcAtomLiteral $ LCalcTermLiteral "f" (LCalcTermLiteral "x" (LCalcTermFromApp $ appFromIntLiteral left))
+
+getIntAliasesTerm :: LCalcTerm -> [(String, LCalcAtom)]
+getIntAliasesTerm term = case term of
+    LCalcTermLiteral str term' -> 
+        getIntAliasesTerm term'
+    LCalcTermFromApp app -> 
+        getIntAliasesApp app
+
+getIntAliasesAtom :: LCalcAtom -> [(String, LCalcAtom)]
+getIntAliasesAtom atom = case atom of
+    LCalcAtomLiteral term -> 
+        getIntAliasesTerm term
+    LCalcAtomFromString str -> 
+        case toInt of 
+            Just int ->  
+                [(str, atomFromIntLiteral int)] -- this is where we add to aliases
+            Nothing -> 
+                []
+        where 
+            toInt = readMaybe str :: Maybe Int
+
+getIntAliasesApp' :: LCalcApp' -> [(String, LCalcAtom)]
+getIntAliasesApp' app = case app of -- input shouldn't be empty
+    LCalcApp'Empty -> -- if the second part is empty
+        []
+    LCalcApp'Literal atom' app' ->
+        getIntAliasesAtom atom' ++ getIntAliasesApp' app'
+
+getIntAliasesApp :: LCalcApp -> [(String, LCalcAtom)]
+getIntAliasesApp (LCalcAppLiteral atom' app') = 
+    getIntAliasesAtom atom' ++ getIntAliasesApp' app'
 
 stdLibStrings :: [(String, String)]
 stdLibStrings = [ -- IMPORTANT: functions must be defined before they are used in another
@@ -479,7 +507,7 @@ runLines (line:rest) lineNum aliases = do
         let parsed = parse line
         case parsed of
             Just ast -> do
-                let wrapped = wrapWithAliases ast aliases
+                let wrapped = wrapWithAliases ast (aliases ++ getIntAliasesTerm ast) -- use aliases defined so far + any int literals used in this line
                 let astNew = makeDeBruijn wrapped
 
                 putStrLn $ termToString wrapped
