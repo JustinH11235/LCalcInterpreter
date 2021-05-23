@@ -3,7 +3,7 @@ module Main where
 import System.Environment ( getArgs )
 import Data.List ( elemIndex )
 import Control.Applicative ( Alternative(empty, (<|>)) )
-import Data.Char ( isAlphaNum, isSpace )
+import Data.Char ( isAlphaNum, isAlpha, isLower, isSpace, isSymbol, isAsciiLower, isAscii )
 
 -- GRAMMAR:
 -- term ::= application
@@ -104,7 +104,15 @@ charP :: Char -> Parser Char
 charP c = Parser f
     where
         f (x:xs)
-            | x == c = Just (c, xs)
+            | x == c = Just (x, xs)
+            | otherwise = Nothing
+        f [] = Nothing
+
+charP' :: (Char -> Bool) -> Parser Char
+charP' c = Parser f
+    where
+        f (x:xs)
+            | c x = Just (x, xs)
             | otherwise = Nothing
         f [] = Nothing
 
@@ -165,7 +173,7 @@ lCalcTerm = LCalcTermFromApp <$> lCalcApp <|> lCalcTermLiteral
 -- lCalcAppLiteral = (LCalcAppLiteral <$> lCalcApp) <*> lCalcAtom
 
 lCalcApp :: Parser LCalcApp
-lCalcApp = (LCalcAppLiteral <$> lCalcAtom) <*> lCalcApp'
+lCalcApp = LCalcAppLiteral <$> lCalcAtom <*> lCalcApp'
 
 lCalcApp' :: Parser LCalcApp'
 lCalcApp' = ((LCalcApp'Literal <$> lCalcAtom) <*> lCalcApp') <|> Parser (\s -> Just(LCalcApp'Empty, s))
@@ -428,28 +436,42 @@ evaluateApp (LCalcAppLiteral atom app) = case app of
 
 
 
+wrapWithAliases' :: LCalcApp -> [(String, LCalcAtom)] -> LCalcApp
+wrapWithAliases' (LCalcAppLiteral (LCalcAtomLiteral term) app') ((alias, atom):rest) = 
+    wrapWithAliases' (LCalcAppLiteral (LCalcAtomLiteral $ LCalcTermLiteral alias term) (LCalcApp'Literal atom app')) rest
+wrapWithAliases' app [] = 
+    app
 
-runLine :: String -> Int -> IO ()
-runLine line lineNum = do
+wrapWithAliases :: LCalcTerm -> [(String, LCalcAtom)] -> LCalcTerm
+wrapWithAliases term aliases = 
+    LCalcTermFromApp $ wrapWithAliases' (LCalcAppLiteral (LCalcAtomLiteral term) LCalcApp'Empty) aliases
+
+runLines :: [String] -> Int -> [(String, LCalcAtom)] -> IO ()
+runLines (line:rest) lineNum aliases = do
     let parsed = parse line
     case parsed of
         Just ast -> do
-            let astNew = makeDeBruijn ast
+            let wrapped = wrapWithAliases ast aliases
+            let astNew = makeDeBruijn wrapped
 
-            putStrLn $ termToString ast
+            putStrLn $ termToString wrapped
             putStrLn ""
             putStrLn $ termToString astNew
             putStrLn ""
             putStrLn $ termToString $ evaluateTerm astNew
             putStrLn $ termToString $ makeNormal $ evaluateTerm astNew
+
+            runLines rest (lineNum + 1) aliases
         Nothing ->
             error $ "Syntax error on line " ++ show lineNum ++ "."
+runLines [] lineNum aliases = return ()
 
 runFile :: FilePath -> IO ()
 runFile path = do
     input <- lines <$> readFile path
 
-    foldl (>>) (return ()) (zipWith runLine input [1..])
+    runLines input 1 [] -- TODO: replace [] with stdlib
+    -- foldl (>>) (return ()) (zipWith runLine input [1..])
 
 main :: IO ()
 main = do
