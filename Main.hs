@@ -3,8 +3,8 @@ module Main where
 import System.Environment ( getArgs )
 import Data.List ( elemIndex )
 import Control.Applicative ( Alternative(empty, (<|>)) )
-import Data.Char ( isAlphaNum, isAlpha, isLower, isSpace, isSymbol, isAsciiLower, isAscii )
-import Text.Read
+import Data.Char ( isAlphaNum, isSpace )
+import Text.Read ( readMaybe )
 
 -- GRAMMAR:
 -- term ::= application
@@ -453,22 +453,22 @@ atomFromIntLiteral left = LCalcAtomLiteral $ LCalcTermLiteral "f" (LCalcTermLite
 
 getIntAliasesTerm :: LCalcTerm -> [(String, LCalcAtom)]
 getIntAliasesTerm term = case term of
-    LCalcTermLiteral str term' -> 
+    LCalcTermLiteral str term' ->
         getIntAliasesTerm term'
-    LCalcTermFromApp app -> 
+    LCalcTermFromApp app ->
         getIntAliasesApp app
 
 getIntAliasesAtom :: LCalcAtom -> [(String, LCalcAtom)]
 getIntAliasesAtom atom = case atom of
-    LCalcAtomLiteral term -> 
+    LCalcAtomLiteral term ->
         getIntAliasesTerm term
-    LCalcAtomFromString str -> 
-        case toInt of 
-            Just int ->  
+    LCalcAtomFromString str ->
+        case toInt of
+            Just int ->
                 [(str, atomFromIntLiteral int)] -- this is where we add to aliases
-            Nothing -> 
+            Nothing ->
                 []
-        where 
+        where
             toInt = readMaybe str :: Maybe Int
 
 getIntAliasesApp' :: LCalcApp' -> [(String, LCalcAtom)]
@@ -479,35 +479,80 @@ getIntAliasesApp' app = case app of -- input shouldn't be empty
         getIntAliasesAtom atom' ++ getIntAliasesApp' app'
 
 getIntAliasesApp :: LCalcApp -> [(String, LCalcAtom)]
-getIntAliasesApp (LCalcAppLiteral atom' app') = 
+getIntAliasesApp (LCalcAppLiteral atom' app') =
     getIntAliasesAtom atom' ++ getIntAliasesApp' app'
 
 stdLibStrings :: [(String, String)]
 stdLibStrings = [ -- IMPORTANT: functions must be defined before they are used in another
-    ("SUCC", "(λn.λf.λx.f (n f x))"), 
-    ("ADD", "(λm.λn.λf.λx.m f (n f x))"), 
+    ("0", "(λf.λx.x)"),
+    ("1", "(λf.λx.f x)"),
+    ("2", "(λf.λx.f (f x))"),
+
+    ("Y", "(λf.(λx.f (x x)) (λx.f (x x)))"),
+
+    ("SUCC", "(λn.λf.λx.f (n f x))"),
+    ("ADD", "(λm.λn.λf.λx.m f (n f x))"),
     ("PRED", "(λn.λf.λx.n (λg.λh.h (g f)) (λu.x) (λu.u))"),
-    ("SUB", "(λm.λn.n PRED m)")
+    ("SUB", "(λm.λn.n PRED m)"),
+    ("MULT", "(λm.λn.λf.m (n f))"),
+    ("POW", "(λb.λe.e b)"),
+
+    ("TRUE", "(λx.λy.x)"),
+    ("FALSE", "(λx.λy.y)"),
+    ("AND", "(λp.λq.p q p)"),
+    ("OR", "(λp.λq.p p q)"),
+    ("NOT", "(λp.p FALSE TRUE)"),
+    ("IF_THEN_ELSE", "(λp.λa.λb.p a b)"),
+    ("IS_ZERO", "(λn.n (λp.FALSE) TRUE)"),
+    ("LEQ", "(λm.λn.IS_ZERO (SUB m n))"),
+    ("LT", "(λm.λn.LEQ (SUCC m) n)"),
+    ("GT", "(λm.λn. NOT (LEQ m n))"),
+    ("GEQ", "(λm.λn.GT (SUCC m) n)"),
+    ("EQ", "(λm.λn.AND (LEQ m n) (LEQ n m))"),
+    ("IS_EVEN", "(λn.n NOT TRUE)"),
+    ("IS_ODD", "(λn.n NOT FALSE)"),
+
+    ("PAIR", "(λx.λy.λf.f x y)"),
+    ("FIRST", "(λp.p TRUE)"),
+    ("SECOND", "(λp.p FALSE)"),
+    ("SHIFT_AND_INC", "(λp. PAIR (SECOND p) (SUCC (SECOND p)))"),
+
+    ("NIL", "FALSE"),
+    ("IS_NULL", "(λl.l (λv.λn.λ_.FALSE) TRUE)"),
+    ("SINGLE_NODE", "(λv.PAIR v NIL)"),
+    ("UNSHIFT", "PAIR"),
+    ("SHIFT", "SECOND"),
+    ("VAL", "FIRST"),
+    ("NEXT", "SECOND"),
+    ("SUM_HELPER", "(λr.λl.l (λv.λn.λ_.ADD v (r n)) 0)"),
+    ("SUM", "(Y SUM_HELPER)"),
+    -- make a reduce function and reduce1 function to simplify sum/maximum (need to replace wrapping with direct substitution)
+    ("MAX", "(λm.λn.(GT m n) m n)"),
+    ("MAXIMUM_HELPER", "(λr.λl.l (λv.λn.λ_.MAX v (r n)) 0)"),
+    ("MAXIMUM", "(Y MAXIMUM_HELPER)"),
+
+    ("DIV_HELPER", "(λr.λm.λn.λf.λx.(LT m n) (0 f x) (f (r (SUB m n) n f x)))"),
+    ("DIV", "(Y DIV_HELPER)")
     ]
 
 stdlib :: [(String, LCalcAtom)]
 stdlib = map (\(name, def) -> (name, LCalcAtomLiteral $ parseUnstable def)) (reverse stdLibStrings)
 
 wrapWithAliases :: LCalcTerm -> [(String, LCalcAtom)] -> LCalcTerm
-wrapWithAliases term ((alias, def):rest) = 
+wrapWithAliases term ((alias, def):rest) =
     wrapWithAliases (LCalcTermFromApp $ LCalcAppLiteral (LCalcAtomLiteral $ LCalcTermLiteral alias term) (LCalcApp'Literal def LCalcApp'Empty)) rest
-wrapWithAliases app [] = 
+wrapWithAliases app [] =
     app
 
 runLines :: [String] -> Int -> [(String, LCalcAtom)] -> IO ()
 runLines (line:rest) lineNum aliases = do
-    if all isSpace line then 
+    if dropWhile isSpace line == "" || head (dropWhile isSpace line) == '#' then
         runLines rest (lineNum + 1) aliases
     else do
         let parsed = parse line
         case parsed of
             Just ast -> do
-                let wrapped = wrapWithAliases ast (aliases ++ getIntAliasesTerm ast) -- use aliases defined so far + any int literals used in this line
+                let wrapped = wrapWithAliases ast (getIntAliasesTerm ast ++ aliases) -- use aliases defined so far + any int literals used in this line
                 let astNew = makeDeBruijn wrapped
 
                 putStrLn $ termToString wrapped
