@@ -162,6 +162,11 @@ parse inp = do
         Nothing ->
             Nothing
 
+parseUnstable :: String -> LCalcTerm
+parseUnstable inp = do
+    let Just (term, leftover) = runParser (lCalcTerm <* whiteSpace) inp
+    term
+
 lCalcTermLiteral :: Parser LCalcTerm -- \foo. foo bar   LAMBDA LCID DOT term
 -- lCalcTermLiteral = uncurry LCalcTermLiteral <$> ((,) <$> (throwAwayChar '\\' *> lcidP) <*> (throwAwayChar '.' *> lCalcTerm))
 lCalcTermLiteral = LCalcTermLiteral <$> ((throwAwayChar '\\' <|> throwAwayChar 'λ') *> lcidP) <*> (throwAwayChar '.' *> lCalcTerm)
@@ -436,15 +441,23 @@ evaluateApp (LCalcAppLiteral atom app) = case app of
 
 
 
-wrapWithAliases' :: LCalcApp -> [(String, LCalcAtom)] -> LCalcApp
-wrapWithAliases' (LCalcAppLiteral (LCalcAtomLiteral term) app') ((alias, atom):rest) = 
-    wrapWithAliases' (LCalcAppLiteral (LCalcAtomLiteral $ LCalcTermLiteral alias term) (LCalcApp'Literal atom app')) rest
-wrapWithAliases' app [] = 
-    app
+
+stdLibStrings :: [(String, String)]
+stdLibStrings = [ -- IMPORTANT: functions must be defined before they are used in another
+    ("SUCC", "(λn.λf.λx.f (n f x))"), 
+    ("ADD", "(λm.λn.λf.λx.m f (n f x))"), 
+    ("PRED", "(λn.λf.λx.n (λg.λh.h (g f)) (λu.x) (λu.u))"),
+    ("SUB", "(λm.λn.n PRED m)")
+    ]
+
+stdlib :: [(String, LCalcAtom)]
+stdlib = map (\(name, def) -> (name, LCalcAtomLiteral $ parseUnstable def)) (reverse stdLibStrings)
 
 wrapWithAliases :: LCalcTerm -> [(String, LCalcAtom)] -> LCalcTerm
-wrapWithAliases term aliases = 
-    LCalcTermFromApp $ wrapWithAliases' (LCalcAppLiteral (LCalcAtomLiteral term) LCalcApp'Empty) aliases
+wrapWithAliases term ((alias, def):rest) = 
+    wrapWithAliases (LCalcTermFromApp $ LCalcAppLiteral (LCalcAtomLiteral $ LCalcTermLiteral alias term) (LCalcApp'Literal def LCalcApp'Empty)) rest
+wrapWithAliases app [] = 
+    app
 
 runLines :: [String] -> Int -> [(String, LCalcAtom)] -> IO ()
 runLines (line:rest) lineNum aliases = do
@@ -461,7 +474,7 @@ runLines (line:rest) lineNum aliases = do
             putStrLn $ termToString $ evaluateTerm astNew
             putStrLn $ termToString $ makeNormal $ evaluateTerm astNew
 
-            runLines rest (lineNum + 1) aliases
+            runLines rest (lineNum + 1) aliases -- add to aliases here once we can parse assignment
         Nothing ->
             error $ "Syntax error on line " ++ show lineNum ++ "."
 runLines [] lineNum aliases = return ()
@@ -470,7 +483,7 @@ runFile :: FilePath -> IO ()
 runFile path = do
     input <- lines <$> readFile path
 
-    runLines input 1 [] -- TODO: replace [] with stdlib
+    runLines input 1 stdlib
     -- foldl (>>) (return ()) (zipWith runLine input [1..])
 
 main :: IO ()
