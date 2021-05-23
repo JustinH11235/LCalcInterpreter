@@ -461,22 +461,25 @@ wrapWithAliases app [] =
 
 runLines :: [String] -> Int -> [(String, LCalcAtom)] -> IO ()
 runLines (line:rest) lineNum aliases = do
-    let parsed = parse line
-    case parsed of
-        Just ast -> do
-            let wrapped = wrapWithAliases ast aliases
-            let astNew = makeDeBruijn wrapped
+    if all isSpace line then 
+        runLines rest (lineNum + 1) aliases
+    else do
+        let parsed = parse line
+        case parsed of
+            Just ast -> do
+                let wrapped = wrapWithAliases ast aliases
+                let astNew = makeDeBruijn wrapped
 
-            putStrLn $ termToString wrapped
-            putStrLn ""
-            putStrLn $ termToString astNew
-            putStrLn ""
-            putStrLn $ termToString $ evaluateTerm astNew
-            putStrLn $ termToString $ makeNormal $ evaluateTerm astNew
+                putStrLn $ termToString wrapped
+                putStrLn ""
+                putStrLn $ termToString astNew
+                putStrLn ""
+                putStrLn $ termToString $ evaluateTerm astNew
+                putStrLn $ termToString $ makeNormal $ evaluateTerm astNew
 
-            runLines rest (lineNum + 1) aliases -- add to aliases here once we can parse assignment
-        Nothing ->
-            error $ "Syntax error on line " ++ show lineNum ++ "."
+                runLines rest (lineNum + 1) aliases -- add to aliases here once we can parse assignment NTD: numbers 1, 2, 3, ...
+            Nothing ->
+                error $ "Syntax error on line " ++ show lineNum ++ "."
 runLines [] lineNum aliases = return ()
 
 runFile :: FilePath -> IO ()
