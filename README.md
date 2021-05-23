@@ -20,6 +20,6 @@ Evaluation for Lambda Calculus is relatively simple, all you do is evaluate func
 ## Plans
 - [x] Parse an input file as input instead of through stdin. This way you can create a .lc file and then use GHC to transpile your lambda calculus code into Haskell.
 - [x] Use De Bruijn indexing (https://en.wikipedia.org/wiki/De_Bruijn_index) to allow variable names to be reused (at the moment you need to be careful to not let variables shadow each other).
-- [ ] Create a standard library of functions like ADD, MULT, etc. and allow for substitution
+- [x] Create a standard library of functions like ADD, MULT, etc. and allow for substitution
 - [ ] Add to the syntax of the language by allowing assignment, such as A = (\a. a), so that A can be reused later in the code as an alias for (\a. a).
 - [x] After converting the De Bruijn abstract syntax tree into normal variable names, make sure there is no incorrect shadowing that occurs (i.e. make the converted tree a valid equivalent)
