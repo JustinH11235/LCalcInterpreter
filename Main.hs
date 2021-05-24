@@ -473,7 +473,7 @@ getIntAliasesAtom atom = case atom of
 
 getIntAliasesApp' :: LCalcApp' -> [(String, LCalcAtom)]
 getIntAliasesApp' app = case app of -- input shouldn't be empty
-    LCalcApp'Empty -> -- if the second part is empty
+    LCalcApp'Empty ->
         []
     LCalcApp'Literal atom' app' ->
         getIntAliasesAtom atom' ++ getIntAliasesApp' app'
@@ -481,6 +481,13 @@ getIntAliasesApp' app = case app of -- input shouldn't be empty
 getIntAliasesApp :: LCalcApp -> [(String, LCalcAtom)]
 getIntAliasesApp (LCalcAppLiteral atom' app') =
     getIntAliasesAtom atom' ++ getIntAliasesApp' app'
+
+-- doesn't work for recursive functions, replaced with direct substitution
+-- wrapWithAliases :: LCalcTerm -> [(String, LCalcAtom)] -> LCalcTerm
+-- wrapWithAliases term ((alias, def):rest) =
+--     wrapWithAliases (LCalcTermFromApp $ LCalcAppLiteral (LCalcAtomLiteral $ LCalcTermLiteral alias term) (LCalcApp'Literal def LCalcApp'Empty)) rest
+-- wrapWithAliases app [] =
+--     app
 
 stdLibStrings :: [(String, String)]
 stdLibStrings = [ -- IMPORTANT: functions must be defined before they are used in another
@@ -531,7 +538,7 @@ stdLibStrings = [ -- IMPORTANT: functions must be defined before they are used i
     ("MAXIMUM_HELPER", "(λr.λl.l (λv.λn.λ_.MAX v (r n)) 0)"),
     ("MAXIMUM", "(Y MAXIMUM_HELPER)"),
 
-    ("DIV_HELPER", "(λr.λm.λn.(LT m n) 0 (f (r (SUB m n) n)))"),
+    ("DIV_HELPER", "(λr.λm.λn.λf.λx.(LT m n) (0 f x) (f (r (SUB m n) n f x)))"),
     ("DIV", "(Y DIV_HELPER)"),
     ("MOD_HELPER", "(λr.λm.λn.(LT m n) m (r (SUB m n) n))"),
     ("MOD", "(Y MOD_HELPER)")
@@ -540,11 +547,36 @@ stdLibStrings = [ -- IMPORTANT: functions must be defined before they are used i
 stdlib :: [(String, LCalcAtom)]
 stdlib = map (\(name, def) -> (name, LCalcAtomLiteral $ parseUnstable def)) (reverse stdLibStrings)
 
-wrapWithAliases :: LCalcTerm -> [(String, LCalcAtom)] -> LCalcTerm
-wrapWithAliases term ((alias, def):rest) =
-    wrapWithAliases (LCalcTermFromApp $ LCalcAppLiteral (LCalcAtomLiteral $ LCalcTermLiteral alias term) (LCalcApp'Literal def LCalcApp'Empty)) rest
-wrapWithAliases app [] =
-    app
+replaceAliasTerm :: LCalcTerm -> (String, LCalcAtom) -> LCalcTerm
+replaceAliasTerm term tuple = case term of
+    LCalcTermLiteral str term' ->
+        LCalcTermLiteral str (replaceAliasTerm term' tuple)
+    LCalcTermFromApp app ->
+        LCalcTermFromApp $ replaceAliasApp app tuple
+
+replaceAliasAtom :: LCalcAtom -> (String, LCalcAtom) -> LCalcAtom
+replaceAliasAtom atom tuple@(alias, def) = case atom of
+    LCalcAtomLiteral term ->
+        LCalcAtomLiteral $ replaceAliasTerm term tuple
+    LCalcAtomFromString str ->
+        if str == alias then
+            def -- this is where we replace
+        else
+            LCalcAtomFromString str
+
+replaceAliasApp' :: LCalcApp' -> (String, LCalcAtom) -> LCalcApp'
+replaceAliasApp' app tuple = case app of -- input shouldn't be empty
+    LCalcApp'Empty ->
+        LCalcApp'Empty
+    LCalcApp'Literal atom' app' ->
+        LCalcApp'Literal (replaceAliasAtom atom' tuple) (replaceAliasApp' app' tuple)
+
+replaceAliasApp :: LCalcApp -> (String, LCalcAtom) -> LCalcApp
+replaceAliasApp (LCalcAppLiteral atom' app') tuple =
+    LCalcAppLiteral (replaceAliasAtom atom' tuple) (replaceAliasApp' app' tuple)
+
+replaceAliases :: LCalcTerm -> [(String, LCalcAtom)] -> LCalcTerm
+replaceAliases = foldl replaceAliasTerm
 
 runLines :: [String] -> Int -> [(String, LCalcAtom)] -> IO ()
 runLines (line:rest) lineNum aliases = do
@@ -554,10 +586,11 @@ runLines (line:rest) lineNum aliases = do
         let parsed = parse line
         case parsed of
             Just ast -> do
-                let wrapped = wrapWithAliases ast (getIntAliasesTerm ast ++ aliases) -- use aliases defined so far + any int literals used in this line
-                let astNew = makeDeBruijn wrapped
+                -- let wrapped = wrapWithAliases ast (getIntAliasesTerm ast ++ aliases) -- use aliases defined so far + any int literals used in this line
+                let replaced = replaceAliases ast (getIntAliasesTerm ast ++ aliases)
+                let astNew = makeDeBruijn replaced
 
-                putStrLn $ termToString wrapped
+                putStrLn $ termToString replaced
                 putStrLn ""
                 putStrLn $ termToString astNew
                 putStrLn ""
