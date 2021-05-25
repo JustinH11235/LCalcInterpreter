@@ -7,6 +7,9 @@ import Data.Char ( isAlphaNum, isSpace )
 import Text.Read ( readMaybe )
 
 -- GRAMMAR:
+-- statement ::= LCID := term  -- assignment
+--        | [int/bool ::] term -- printing
+
 -- term ::= application
 --        | LAMBDA LCID DOT term
 
@@ -17,6 +20,11 @@ import Text.Read ( readMaybe )
 
 -- atom ::= LPAREN term RPAREN
 --        | LCID
+
+data LCalcStatement =
+    LCalcStatementAssignment String LCalcTerm |
+    LCalcStatementPrinting String LCalcTerm
+    deriving (Show, Eq)
 
 data LCalcTerm =
     LCalcTermFromApp LCalcApp |
@@ -44,6 +52,17 @@ data LCalcAtom =
     | LCalcAtomFromInt Int
     deriving (Show, Eq)
 
+
+-- change to make ints show as ints and bools show as bools
+statementToString :: LCalcStatement -> String
+statementToString statement = case statement of
+    LCalcStatementAssignment str term ->
+        str ++ " := " ++ termToString term
+    LCalcStatementPrinting str term ->
+        if str == "function" then 
+            termToString term
+        else 
+            str ++ " :: " ++ termToString term
 
 termToString :: LCalcTerm -> String
 termToString term = case term of
@@ -148,9 +167,10 @@ throwAwayString s = whiteSpace *> stringP s
 
 
 
-parse :: String -> Maybe LCalcTerm
+parse :: String -> Maybe LCalcStatement
 parse inp = do
-    let res = runParser (lCalcTerm <* whiteSpace) inp
+    -- let res = runParser (lCalcTerm <* whiteSpace) inp
+    let res = runParser (lCalcStatement <* whiteSpace) inp
     case res of
         Just (term, leftover) ->
             case leftover of
@@ -167,6 +187,15 @@ parseUnstable :: String -> LCalcTerm
 parseUnstable inp = do
     let Just (term, leftover) = runParser (lCalcTerm <* whiteSpace) inp
     term
+
+lCalcStatementAssignment :: Parser LCalcStatement -- LCID := term
+lCalcStatementAssignment = LCalcStatementAssignment <$> lcidP <*> (throwAwayString ":=" *> lCalcTerm)
+
+lCalcStatementPrinting :: Parser LCalcStatement -- [int/bool ::] term
+lCalcStatementPrinting = LCalcStatementPrinting <$> (((stringP "int" <|> stringP "bool" <|> stringP "function") <* throwAwayString "::") <|> Parser (\input -> Just ("function", input))) <*> lCalcTerm
+
+lCalcStatement :: Parser LCalcStatement
+lCalcStatement = lCalcStatementAssignment <|> lCalcStatementPrinting
 
 lCalcTermLiteral :: Parser LCalcTerm -- \foo. foo bar   LAMBDA LCID DOT term
 -- lCalcTermLiteral = uncurry LCalcTermLiteral <$> ((,) <$> (throwAwayChar '\\' *> lcidP) <*> (throwAwayChar '.' *> lCalcTerm))
@@ -587,17 +616,18 @@ runLines (line:rest) lineNum aliases = do
         case parsed of
             Just ast -> do
                 -- let wrapped = wrapWithAliases ast (getIntAliasesTerm ast ++ aliases) -- use aliases defined so far + any int literals used in this line
-                let replaced = replaceAliases ast (getIntAliasesTerm ast ++ aliases)
-                let astNew = makeDeBruijn replaced
+                putStrLn $ statementToString ast
+                -- let replaced = replaceAliases ast (getIntAliasesTerm ast ++ aliases)
+                -- let astNew = makeDeBruijn replaced
 
-                putStrLn $ termToString replaced
-                putStrLn ""
-                putStrLn $ termToString astNew
-                putStrLn ""
-                putStrLn $ termToString $ evaluateTerm astNew
-                putStrLn $ termToString $ makeNormal $ evaluateTerm astNew
+                -- putStrLn $ termToString replaced
+                -- putStrLn ""
+                -- putStrLn $ termToString astNew
+                -- putStrLn ""
+                -- putStrLn $ termToString $ evaluateTerm astNew
+                -- putStrLn $ termToString $ makeNormal $ evaluateTerm astNew
 
-                runLines rest (lineNum + 1) aliases -- add to aliases here once we can parse assignment NTD: numbers 1, 2, 3, ...
+                -- runLines rest (lineNum + 1) aliases -- add to aliases here once we can parse assignment NTD: numbers 1, 2, 3, ...
             Nothing ->
                 error $ "Syntax error on line " ++ show lineNum ++ "."
 runLines [] lineNum aliases = return ()
