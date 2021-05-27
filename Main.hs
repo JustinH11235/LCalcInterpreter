@@ -8,7 +8,7 @@ import Text.Read ( readMaybe )
 
 -- GRAMMAR:
 -- statement ::= LCID := term  -- assignment
---        | [int/bool ::] term -- printing
+--        | [int/bool/function ::] term -- printing
 
 -- term ::= application
 --        | LAMBDA LCID DOT term
@@ -59,9 +59,9 @@ statementToString statement = case statement of
     LCalcStatementAssignment str term ->
         str ++ " := " ++ termToString term
     LCalcStatementPrinting str term ->
-        if str == "function" then 
+        if str == "function" then
             termToString term
-        else 
+        else
             str ++ " :: " ++ termToString term
 
 termToString :: LCalcTerm -> String
@@ -475,6 +475,7 @@ evaluateApp (LCalcAppLiteral atom app) = case app of
 
 appFromIntLiteral :: Int -> LCalcApp
 appFromIntLiteral 0 = LCalcAppLiteral (LCalcAtomFromString "x") LCalcApp'Empty
+appFromIntLiteral 1 = LCalcAppLiteral (LCalcAtomFromString "f") (LCalcApp'Literal (LCalcAtomFromString "x") LCalcApp'Empty)
 appFromIntLiteral left = LCalcAppLiteral (LCalcAtomFromString "f") (LCalcApp'Literal (LCalcAtomLiteral $ LCalcTermFromApp $ appFromIntLiteral $ left - 1) LCalcApp'Empty)
 
 atomFromIntLiteral :: Int -> LCalcAtom
@@ -607,6 +608,22 @@ replaceAliasApp (LCalcAppLiteral atom' app') tuple =
 replaceAliases :: LCalcTerm -> [(String, LCalcAtom)] -> LCalcTerm
 replaceAliases = foldl replaceAliasTerm
 
+isInt :: LCalcTerm -> Bool
+isInt (LCalcTermLiteral f (LCalcTermLiteral x (LCalcTermFromApp app))) = isIntApp app
+isInt _ = False
+
+isIntApp :: LCalcApp -> Bool
+isIntApp (LCalcAppLiteral (LCalcAtomFromInt 1) (LCalcApp'Literal (LCalcAtomLiteral (LCalcTermFromApp app)) LCalcApp'Empty)) = isIntApp app
+isIntApp (LCalcAppLiteral (LCalcAtomFromInt 1) (LCalcApp'Literal (LCalcAtomFromInt 0) LCalcApp'Empty)) = True 
+isIntApp (LCalcAppLiteral (LCalcAtomFromInt 0) LCalcApp'Empty) = True
+isIntApp _ = False
+                
+
+isBool :: LCalcTerm -> Bool
+isBool (LCalcTermLiteral x (LCalcTermLiteral y (LCalcTermFromApp (LCalcAppLiteral (LCalcAtomFromInt 0) LCalcApp'Empty)))) = True
+isBool (LCalcTermLiteral x (LCalcTermLiteral y (LCalcTermFromApp (LCalcAppLiteral (LCalcAtomFromInt 1) LCalcApp'Empty)))) = True 
+isBool _ = False
+
 runLines :: [String] -> Int -> [(String, LCalcAtom)] -> IO ()
 runLines (line:rest) lineNum aliases = do
     if dropWhile isSpace line == "" || head (dropWhile isSpace line) == '#' then
@@ -614,9 +631,13 @@ runLines (line:rest) lineNum aliases = do
     else do
         let parsed = parse line
         case parsed of
-            Just ast -> do
+            Just (LCalcStatementAssignment str term) -> do
+                let replaced = replaceAliases term (getIntAliasesTerm term ++ aliases)
+                let evaluatedAst = makeNormal $ evaluateTerm $ makeDeBruijn term
+
+                runLines rest (lineNum + 1) ((str, LCalcAtomLiteral term):aliases) -- add to aliases here once we can parse assignment NTD: numbers 1, 2, 3, ...
                 -- let wrapped = wrapWithAliases ast (getIntAliasesTerm ast ++ aliases) -- use aliases defined so far + any int literals used in this line
-                putStrLn $ statementToString ast
+                -- putStrLn $ statementToString ast
                 -- let replaced = replaceAliases ast (getIntAliasesTerm ast ++ aliases)
                 -- let astNew = makeDeBruijn replaced
 
@@ -628,6 +649,26 @@ runLines (line:rest) lineNum aliases = do
                 -- putStrLn $ termToString $ makeNormal $ evaluateTerm astNew
 
                 -- runLines rest (lineNum + 1) aliases -- add to aliases here once we can parse assignment NTD: numbers 1, 2, 3, ...
+            Just (LCalcStatementPrinting datatype term) -> do
+                let replaced = replaceAliases term (getIntAliasesTerm term ++ aliases)
+                let evaluatedAst = evaluateTerm $ makeDeBruijn replaced
+                let normalizedAst = makeNormal evaluatedAst
+
+                case datatype of
+                    "int" ->
+                        if isInt evaluatedAst then
+                            intLiteralFromTerm evaluatedAst
+                        else
+                            putStrLn $ termToString normalizedAst
+                    "bool" ->
+                        if isBool evaluatedAst then
+                            boolLiteralFromTerm evaluatedAst
+                        else
+                            putStrLn $ termToString normalizedAst
+                    "function" ->
+                        putStrLn $ termToString normalizedAst
+
+                runLines rest (lineNum + 1) aliases
             Nothing ->
                 error $ "Syntax error on line " ++ show lineNum ++ "."
 runLines [] lineNum aliases = return ()
@@ -637,7 +678,6 @@ runFile path = do
     input <- lines <$> readFile path
 
     runLines input 1 stdlib
-    -- foldl (>>) (return ()) (zipWith runLine input [1..])
 
 main :: IO ()
 main = do
