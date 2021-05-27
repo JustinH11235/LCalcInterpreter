@@ -617,12 +617,23 @@ isIntApp (LCalcAppLiteral (LCalcAtomFromInt 1) (LCalcApp'Literal (LCalcAtomLiter
 isIntApp (LCalcAppLiteral (LCalcAtomFromInt 1) (LCalcApp'Literal (LCalcAtomFromInt 0) LCalcApp'Empty)) = True 
 isIntApp (LCalcAppLiteral (LCalcAtomFromInt 0) LCalcApp'Empty) = True
 isIntApp _ = False
-                
+
+intLiteralFromTerm :: LCalcTerm -> Int
+intLiteralFromTerm (LCalcTermLiteral f (LCalcTermLiteral x (LCalcTermFromApp app))) = intLiteralFromApp app
+
+intLiteralFromApp :: LCalcApp -> Int
+intLiteralFromApp (LCalcAppLiteral (LCalcAtomFromInt 1) (LCalcApp'Literal (LCalcAtomLiteral (LCalcTermFromApp app)) LCalcApp'Empty)) = 1 + intLiteralFromApp app
+intLiteralFromApp (LCalcAppLiteral (LCalcAtomFromInt 1) (LCalcApp'Literal (LCalcAtomFromInt 0) LCalcApp'Empty)) = 1
+intLiteralFromApp (LCalcAppLiteral (LCalcAtomFromInt 0) LCalcApp'Empty) = 0
 
 isBool :: LCalcTerm -> Bool
 isBool (LCalcTermLiteral x (LCalcTermLiteral y (LCalcTermFromApp (LCalcAppLiteral (LCalcAtomFromInt 0) LCalcApp'Empty)))) = True
 isBool (LCalcTermLiteral x (LCalcTermLiteral y (LCalcTermFromApp (LCalcAppLiteral (LCalcAtomFromInt 1) LCalcApp'Empty)))) = True 
 isBool _ = False
+
+boolLiteralFromTerm :: LCalcTerm -> Bool 
+boolLiteralFromTerm (LCalcTermLiteral x (LCalcTermLiteral y (LCalcTermFromApp (LCalcAppLiteral (LCalcAtomFromInt 0) LCalcApp'Empty)))) = False
+boolLiteralFromTerm (LCalcTermLiteral x (LCalcTermLiteral y (LCalcTermFromApp (LCalcAppLiteral (LCalcAtomFromInt 1) LCalcApp'Empty)))) = True 
 
 runLines :: [String] -> Int -> [(String, LCalcAtom)] -> IO ()
 runLines (line:rest) lineNum aliases = do
@@ -635,38 +646,25 @@ runLines (line:rest) lineNum aliases = do
                 let replaced = replaceAliases term (getIntAliasesTerm term ++ aliases)
                 let evaluatedAst = makeNormal $ evaluateTerm $ makeDeBruijn term
 
-                runLines rest (lineNum + 1) ((str, LCalcAtomLiteral term):aliases) -- add to aliases here once we can parse assignment NTD: numbers 1, 2, 3, ...
-                -- let wrapped = wrapWithAliases ast (getIntAliasesTerm ast ++ aliases) -- use aliases defined so far + any int literals used in this line
-                -- putStrLn $ statementToString ast
-                -- let replaced = replaceAliases ast (getIntAliasesTerm ast ++ aliases)
-                -- let astNew = makeDeBruijn replaced
-
-                -- putStrLn $ termToString replaced
-                -- putStrLn ""
-                -- putStrLn $ termToString astNew
-                -- putStrLn ""
-                -- putStrLn $ termToString $ evaluateTerm astNew
-                -- putStrLn $ termToString $ makeNormal $ evaluateTerm astNew
-
-                -- runLines rest (lineNum + 1) aliases -- add to aliases here once we can parse assignment NTD: numbers 1, 2, 3, ...
+                runLines rest (lineNum + 1) ((str, LCalcAtomLiteral term):aliases)
             Just (LCalcStatementPrinting datatype term) -> do
                 let replaced = replaceAliases term (getIntAliasesTerm term ++ aliases)
                 let evaluatedAst = evaluateTerm $ makeDeBruijn replaced
                 let normalizedAst = makeNormal evaluatedAst
 
-                case datatype of
+                putStrLn $ case datatype of
                     "int" ->
                         if isInt evaluatedAst then
-                            intLiteralFromTerm evaluatedAst
+                            show $ intLiteralFromTerm evaluatedAst
                         else
-                            putStrLn $ termToString normalizedAst
+                            termToString normalizedAst
                     "bool" ->
                         if isBool evaluatedAst then
-                            boolLiteralFromTerm evaluatedAst
+                            show $ boolLiteralFromTerm evaluatedAst
                         else
-                            putStrLn $ termToString normalizedAst
+                            termToString normalizedAst
                     "function" ->
-                        putStrLn $ termToString normalizedAst
+                        termToString normalizedAst
 
                 runLines rest (lineNum + 1) aliases
             Nothing ->
