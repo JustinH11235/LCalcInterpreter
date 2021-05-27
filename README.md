@@ -3,8 +3,9 @@ An interpreter for the Lambda Calculus language written in Haskell.
 
 ## How to Run
 1. Clone this repository onto your local machine
-3. In your terminal, navigate into the new directory
-2. Run: ./LCalcInterpreter {name_of_your_lc_file} (ex. ./LCalcInterpreter example.lc to see example program run)
+2. In your terminal, navigate into the new directory
+3. Compile the source yourself using GHC: 'ghc LCalcInterpreter.hs'
+4. Now run ./LCalcInterpreter {your_filename} (ex. ./LCalcInterpreter example.lc to run example program)
 
 ## What is Lambda Calculus?
 Lambda Calculus is a Turing complete system that uses only functions for computing and is made up of only 3 stuctures:
