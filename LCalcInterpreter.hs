@@ -563,12 +563,18 @@ stdLibStrings = [ -- IMPORTANT: functions must be defined before they are used i
     ("NEXT", "SECOND"),
     ("MAP", "Y (λr.λf.λl.l (λv.λn.λ_.UNSHIFT (f v) (r f n)) NIL)"),
     ("FILTER", "Y (λr.λf.λl.l (λv.λn.λ_.IF_THEN_ELSE (f v) (UNSHIFT v (r f n)) (r f n)) NIL)"),
-    ("REDUCE", "Y (λr.λf.λl.(NEXT l) (λv.λn.λ_.f (VAL l) (r f (NEXT l))) (VAL l))"),
-    ("REDUCE1", "Y (λr.λf.λi.λl.l (λv.λn.λ_.f v (r f i n)) i)"),
+    ("REDUCE", "(Y (λr.λf.λl.(NEXT l) (λv.λn.λ_.f (VAL l) (r f (NEXT l))) (VAL l)))"),
+    ("REDUCE1", "(Y (λr.λf.λi.λl.l (λv.λn.λ_.f v (r f i n)) i))"),
+    ("RANGE", "Y (λr.λs.λe.(LT s e) (UNSHIFT s (r (SUCC s) e)) NIL)"), -- [s,e)
+    ("RANGE1", "(Y (λr.λs.λe.λstep.(LT s e) (UNSHIFT s (r (ADD s step) e step)) NIL))"), -- [s, e]
+    ("LENGTH", "REDUCE1 (λm.λn.SUCC n) 0"),
+    ("COUNT", "(λf.λl.LENGTH (FILTER f l))"),
 
-    ("SUM", "REDUCE1 ADD 0"),
+    ("SUM", "(REDUCE1 ADD 0)"),
     ("MAX", "(λm.λn.(GT m n) m n)"),
     ("MAXIMUM", "REDUCE MAX"),
+    ("MIN", "(λm.λn.(LT m n) m n)"),
+    ("MINIMUM", "REDUCE MIN"),
 
     ("DIV", "Y (λr.λm.λn.λf.λx.(LT m n) (0 f x) (f (r (SUB m n) n f x)))"),
     ("MOD", "Y (λr.λm.λn.(LT m n) m (r (SUB m n) n))")
@@ -644,13 +650,18 @@ runLines (line:rest) lineNum aliases = do
         case parsed of
             Just (LCalcStatementAssignment str term) -> do
                 let replaced = replaceAliases term (getIntAliasesTerm term ++ aliases)
-                let evaluatedAst = makeNormal $ evaluateTerm $ makeDeBruijn term
 
-                runLines rest (lineNum + 1) ((str, LCalcAtomLiteral term):aliases)
+                runLines rest (lineNum + 1) ((str, LCalcAtomLiteral replaced):aliases)
             Just (LCalcStatementPrinting datatype term) -> do
                 let replaced = replaceAliases term (getIntAliasesTerm term ++ aliases)
                 let evaluatedAst = evaluateTerm $ makeDeBruijn replaced
                 let normalizedAst = makeNormal evaluatedAst
+
+                -- Debugging
+                -- putStrLn $ termToString replaced
+                -- putStrLn $ termToString $ makeDeBruijn replaced
+                -- putStrLn $ termToString evaluatedAst
+                -- putStrLn $ termToString normalizedAst
 
                 putStrLn $ case datatype of
                     "int" ->
