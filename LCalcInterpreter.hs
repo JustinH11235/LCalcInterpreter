@@ -561,14 +561,17 @@ stdLibStrings = [ -- IMPORTANT: functions must be defined before they are used i
     ("SHIFT", "SECOND"),
     ("VAL", "FIRST"),
     ("NEXT", "SECOND"),
+    ("PUSH", "Y (λr.λp.λl.l (λv.λn.λ_.UNSHIFT v (r p n)) (SINGLE_NODE p))"),
+    ("POP", "Y (λr.λl.(NEXT l) (λv.λn.λ_.UNSHIFT (VAL l) (r (NEXT l))) NIL)"),
     ("MAP", "Y (λr.λf.λl.l (λv.λn.λ_.UNSHIFT (f v) (r f n)) NIL)"),
     ("FILTER", "Y (λr.λf.λl.l (λv.λn.λ_.IF_THEN_ELSE (f v) (UNSHIFT v (r f n)) (r f n)) NIL)"),
     ("REDUCE", "Y (λr.λf.λl.(NEXT l) (λv.λn.λ_.f (VAL l) (r f (NEXT l))) (VAL l))"),
     ("REDUCE1", "Y (λr.λf.λi.λl.l (λv.λn.λ_.f v (r f i n)) i)"),
     ("RANGE", "Y (λr.λs.λe.(LT s e) (UNSHIFT s (r (SUCC s) e)) NIL)"), -- [s,e)
-    ("RANGE1", "Y (λr.λs.λe.λstep.(LT s e) (UNSHIFT s (r (ADD s step) e step)) NIL)"), -- [s, e]
+    ("RANGE1", "Y (λr.λs.λe.λstep.(LT s e) (UNSHIFT s (r (ADD s step) e step)) NIL)"), -- [s, e)
     ("LENGTH", "REDUCE1 (λm.λn.SUCC n) 0"),
     ("COUNT", "(λf.λl.LENGTH (FILTER f l))"),
+    ("REVERSE", "Y (λr.λl.l (λv.λn.λ_.PUSH v (r n)) NIL)"),
 
     ("SUM", "REDUCE1 ADD 0"),
     ("MAX", "(λm.λn.(GT m n) m n)"),
