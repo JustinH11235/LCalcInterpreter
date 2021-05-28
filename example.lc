@@ -7,7 +7,7 @@ function :: POW 2 3
 # Same as above
 POW 2 3
 
-# If you try to print as a bool when it is not, it will revert to a function
+# If you try to print as a datatype when it is not, it will revert to a function
 bool :: POW 2 3
 
 # This is an example of an actual bool
