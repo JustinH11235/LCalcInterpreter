@@ -561,17 +561,17 @@ stdLibStrings = [ -- IMPORTANT: functions must be defined before they are used i
     ("SHIFT", "SECOND"),
     ("VAL", "FIRST"),
     ("NEXT", "SECOND"),
-    ("SUM_HELPER", "(λr.λl.l (λv.λn.λ_.ADD v (r n)) 0)"),
-    ("SUM", "(Y SUM_HELPER)"),
-    -- make a reduce function and reduce1 function to simplify sum/maximum (need to replace wrapping with direct substitution)
-    ("MAX", "(λm.λn.(GT m n) m n)"),
-    ("MAXIMUM_HELPER", "(λr.λl.l (λv.λn.λ_.MAX v (r n)) 0)"),
-    ("MAXIMUM", "(Y MAXIMUM_HELPER)"),
+    ("MAP", "Y (λr.λf.λl.l (λv.λn.λ_.UNSHIFT (f v) (r f n)) NIL)"),
+    ("FILTER", "Y (λr.λf.λl.l (λv.λn.λ_.IF_THEN_ELSE (f v) (UNSHIFT v (r f n)) (r f n)) NIL)"),
+    ("REDUCE", "Y (λr.λf.λl.(NEXT l) (λv.λn.λ_.f (VAL l) (r f (NEXT l))) (VAL l))"),
+    ("REDUCE1", "Y (λr.λf.λi.λl.l (λv.λn.λ_.f v (r f i n)) i)"),
 
-    ("DIV_HELPER", "(λr.λm.λn.λf.λx.(LT m n) (0 f x) (f (r (SUB m n) n f x)))"),
-    ("DIV", "(Y DIV_HELPER)"),
-    ("MOD_HELPER", "(λr.λm.λn.(LT m n) m (r (SUB m n) n))"),
-    ("MOD", "(Y MOD_HELPER)")
+    ("SUM", "REDUCE1 ADD 0"),
+    ("MAX", "(λm.λn.(GT m n) m n)"),
+    ("MAXIMUM", "REDUCE MAX"),
+
+    ("DIV", "Y (λr.λm.λn.λf.λx.(LT m n) (0 f x) (f (r (SUB m n) n f x)))"),
+    ("MOD", "Y (λr.λm.λn.(LT m n) m (r (SUB m n) n))")
     ]
 
 stdlib :: [(String, LCalcAtom)]
