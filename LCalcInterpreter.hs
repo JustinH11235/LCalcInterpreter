@@ -572,6 +572,8 @@ stdLibStrings = [ -- IMPORTANT: functions must be defined before they are used i
     ("LENGTH", "REDUCE1 (λm.λn.SUCC n) 0"),
     ("COUNT", "(λf.λl.LENGTH (FILTER f l))"),
     ("REVERSE", "Y (λr.λl.l (λv.λn.λ_.PUSH v (r n)) NIL)"),
+    ("TAKE", "(λn.λl.(SUB (LENGTH l) n) POP l)"),
+    ("DROP", "(λn.λl.n SHIFT l)"),
 
     ("SUM", "REDUCE1 ADD 0"),
     ("MAX", "(λm.λn.(GT m n) m n)"),
