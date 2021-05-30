@@ -574,6 +574,9 @@ stdLibStrings = [ -- IMPORTANT: functions must be defined before they are used i
     ("REVERSE", "Y (λr.λl.l (λv.λn.λ_.PUSH v (r n)) NIL)"),
     ("TAKE", "(λn.λl.(SUB (LENGTH l) n) POP l)"),
     ("DROP", "(λn.λl.n SHIFT l)"),
+    ("SLICE", "(λs.λe.λl.DROP s (TAKE e l))"),
+    ("SORT_HELPER", "Y (λr.λl.(NEXT l) (λv.λn.λ_.IF_THEN_ELSE (GT (VAL l) v) (UNSHIFT v (r (UNSHIFT (VAL l) n))) (UNSHIFT (VAL l) (r (NEXT l)))) l)"),
+    ("SORT", "(λl.(LENGTH l) SORT_HELPER l)"),
 
     ("SUM", "REDUCE1 ADD 0"),
     ("MAX", "(λm.λn.(GT m n) m n)"),
