@@ -53,7 +53,7 @@ data LCalcAtom =
     deriving (Show, Eq)
 
 
--- change to make ints show as ints and bools show as bools
+
 statementToString :: LCalcStatement -> String
 statementToString statement = case statement of
     LCalcStatementAssignment str term ->
@@ -521,12 +521,15 @@ getIntAliasesApp (LCalcAppLiteral atom' app') =
 
 stdLibStrings :: [(String, String)]
 stdLibStrings = [ -- IMPORTANT: functions must be defined before they are used in another
+    -- Unsigned integers
     ("0", "(λf.λx.x)"),
     ("1", "(λf.λx.f x)"),
     ("2", "(λf.λx.f (f x))"),
 
+    -- Recursion
     ("Y", "(λf.(λx.f (x x)) (λx.f (x x)))"),
 
+    -- Basic arithmetic
     ("SUCC", "(λn.λf.λx.f (n f x))"),
     ("ADD", "(λm.λn.λf.λx.m f (n f x))"),
     ("PRED", "(λn.λf.λx.n (λg.λh.h (g f)) (λu.x) (λu.u))"),
@@ -534,26 +537,49 @@ stdLibStrings = [ -- IMPORTANT: functions must be defined before they are used i
     ("MULT", "(λm.λn.λf.m (n f))"),
     ("POW", "(λb.λe.e b)"),
 
+    -- Booleans & logic
     ("TRUE", "(λx.λy.x)"),
     ("FALSE", "(λx.λy.y)"),
     ("AND", "(λp.λq.p q p)"),
     ("OR", "(λp.λq.p p q)"),
     ("NOT", "(λp.p FALSE TRUE)"),
     ("IF_THEN_ELSE", "(λp.λa.λb.p a b)"),
-    ("IS_ZERO", "(λn.n (λp.FALSE) TRUE)"),
+    ("IS_ZERO", "(λn.n (λ_.FALSE) TRUE)"),
     ("LEQ", "(λm.λn.IS_ZERO (SUB m n))"),
     ("LT", "(λm.λn.LEQ (SUCC m) n)"),
     ("GT", "(λm.λn. NOT (LEQ m n))"),
     ("GEQ", "(λm.λn.GT (SUCC m) n)"),
     ("EQ", "(λm.λn.AND (LEQ m n) (LEQ n m))"),
+    ("NEQ", "(λm.λn.NOT (EQ m n))"),
     ("IS_EVEN", "(λn.n NOT TRUE)"),
     ("IS_ODD", "(λn.n NOT FALSE)"),
 
+    -- More difficult arithmetic
+    ("DIV", "Y (λr.λm.λn.λf.λx.(LT m n) (0 f x) (f (r (SUB m n) n f x)))"),
+    ("SAFE_DIV", "(λm.λn.IF_THEN_ELSE (IS_ZERO n) 0 (DIV m n))"),
+    ("MOD", "Y (λr.λm.λn.(LT m n) m (r (SUB m n) n))"),
+
+    -- Pairs
     ("PAIR", "(λx.λy.λf.f x y)"),
     ("FIRST", "(λp.p TRUE)"),
     ("SECOND", "(λp.p FALSE)"),
     ("SHIFT_AND_INC", "(λp. PAIR (SECOND p) (SUCC (SECOND p)))"),
 
+    -- Signed integers (pre-condition: inputs are normalized; post-condition: outputs are normalized)
+    -- normalized means at least one of FIRST and SECOND equals 0
+    ("POS", "(λn.PAIR n 0)"),
+    ("NEG", "(λn.PAIR 0 n)"),
+    ("NEGATE", "(λn.PAIR (SECOND n) (FIRST n))"),
+    ("IS_NEGS", "(λn.AND (IS_ZERO (FIRST n)) (NOT (IS_ZERO (SECOND n)))))"),
+    ("IS_POSS", "(λn.AND (NOT (IS_ZERO (FIRST n))) (IS_ZERO (SECOND n))))"),
+    ("IS_ZEROS", "(λn.AND (IS_ZERO (FIRST n)) (IS_ZERO (SECOND n)))"),
+    ("NORMALIZE", "(λn.IF_THEN_ELSE (GT (FIRST n) (SECOND n)) (PAIR (SUB (FIRST n) (SECOND n)) 0) (PAIR 0 (SUB (SECOND n) (FIRST n))))"),
+    ("ADDS", "(λm.λn.NORMALIZE (PAIR (ADD (FIRST m) (FIRST n)) (ADD (SECOND m) (SECOND n))))"),
+    ("SUBS", "(λm.λn.NORMALIZE (PAIR (ADD (FIRST m) (SECOND n)) (ADD (SECOND m) (FIRST n))))"),
+    ("MULTS", "(λm.λn.NORMALIZE (PAIR (ADD (MULT (FIRST m) (FIRST n)) (MULT (SECOND m) (SECOND n))) (ADD (MULT (FIRST m) (SECOND n)) (MULT (SECOND m) (FIRST n)))))"),
+    ("DIVS", "(λm.λn.NORMALIZE (PAIR (ADD (SAFE_DIV (FIRST m) (FIRST n)) (SAFE_DIV (SECOND m) (SECOND n))) (ADD (SAFE_DIV (FIRST m) (SECOND n)) (SAFE_DIV (SECOND m) (FIRST n)))))"),
+
+    -- Linked lists
     ("NIL", "FALSE"),
     ("IS_NULL", "(λl.l (λv.λn.λ_.FALSE) TRUE)"),
     ("SINGLE_NODE", "(λv.PAIR v NIL)"),
@@ -577,15 +603,11 @@ stdLibStrings = [ -- IMPORTANT: functions must be defined before they are used i
     ("SLICE", "(λs.λe.λl.DROP s (TAKE e l))"),
     ("SORT_HELPER", "Y (λr.λl.(NEXT l) (λv.λn.λ_.IF_THEN_ELSE (GT (VAL l) v) (UNSHIFT v (r (UNSHIFT (VAL l) n))) (UNSHIFT (VAL l) (r (NEXT l)))) l)"),
     ("SORT", "(λl.(LENGTH l) SORT_HELPER l)"),
-
     ("SUM", "REDUCE1 ADD 0"),
     ("MAX", "(λm.λn.(GT m n) m n)"),
     ("MAXIMUM", "REDUCE MAX"),
     ("MIN", "(λm.λn.(LT m n) m n)"),
-    ("MINIMUM", "REDUCE MIN"),
-
-    ("DIV", "Y (λr.λm.λn.λf.λx.(LT m n) (0 f x) (f (r (SUB m n) n f x)))"),
-    ("MOD", "Y (λr.λm.λn.(LT m n) m (r (SUB m n) n))")
+    ("MINIMUM", "REDUCE MIN")
     ]
 
 stdlib :: [(String, LCalcAtom)]
