@@ -569,6 +569,7 @@ stdLibStrings = [ -- IMPORTANT: functions must be defined before they are used i
     -- normalized means at least one of FIRST and SECOND equals 0
     ("POS", "(λn.PAIR n 0)"),
     ("NEG", "(λn.PAIR 0 n)"),
+    ("ABS", "(λn.ADD (FIRST n) (SECOND n))"),
     ("NEGATE", "(λn.PAIR (SECOND n) (FIRST n))"),
     ("IS_NEGS", "(λn.AND (IS_ZERO (FIRST n)) (NOT (IS_ZERO (SECOND n)))))"),
     ("IS_POSS", "(λn.AND (NOT (IS_ZERO (FIRST n))) (IS_ZERO (SECOND n))))"),
@@ -578,6 +579,14 @@ stdLibStrings = [ -- IMPORTANT: functions must be defined before they are used i
     ("SUBS", "(λm.λn.NORMALIZE (PAIR (ADD (FIRST m) (SECOND n)) (ADD (SECOND m) (FIRST n))))"),
     ("MULTS", "(λm.λn.NORMALIZE (PAIR (ADD (MULT (FIRST m) (FIRST n)) (MULT (SECOND m) (SECOND n))) (ADD (MULT (FIRST m) (SECOND n)) (MULT (SECOND m) (FIRST n)))))"),
     ("DIVS", "(λm.λn.NORMALIZE (PAIR (ADD (SAFE_DIV (FIRST m) (FIRST n)) (SAFE_DIV (SECOND m) (SECOND n))) (ADD (SAFE_DIV (FIRST m) (SECOND n)) (SAFE_DIV (SECOND m) (FIRST n)))))"),
+    ("LEQS", "(λm.λn.NOT (IS_POSS (SUBS m n)))"),
+    ("LTS", "(λm.λn.IS_NEGS (SUBS m n))"),
+    ("GTS", "(λm.λn.IS_POSS (SUBS m n))"),
+    ("GEQS", "(λm.λn.NOT (IS_NEGS (SUBS m n)))"),
+    ("EQS", "(λm.λn.AND (EQ (FIRST m) (FIRST n)) (EQ (SECOND m) (SECOND n)))"),
+    ("NEQS", "(λm.λn.NOT (EQS m n))"),
+    ("IS_EVENS", "(λn.(ABS n) NOT TRUE)"),
+    ("IS_ODDS", "(λn.(ABS n) NOT FALSE)"),
 
     -- Linked lists
     ("NIL", "FALSE"),
