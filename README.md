@@ -4,8 +4,12 @@ An interpreter for the Lambda Calculus language written in Haskell.
 ## How to Run
 1. Clone this repository onto your local machine
 2. In your terminal, navigate into the new directory
-3. Compile the source yourself using GHC: 'ghc LCalcInterpreter.hs'
-4. Now run ./LCalcInterpreter {your_filename} (ex. ./LCalcInterpreter example.lc to run example program)
+3. Compile the source yourself using GHC: `ghc LCalcInterpreter.hs`
+4. Now run `./LCalcInterpreter {your_filename}` (ex. `./LCalcInterpreter example.lc` to run example program)
+
+## Syntax Highlighting
+If you use Visual Studio Code as your text editor, there is currently no extension on the marketplace that adds syntax highlighting for my language, however, I made a syntax highlighter that you can use (https://github.com/JustinH11235/lcalc-syntax-highlighting) by simply placing this repository's folder in your `<user home>/.vscode/extensions` folder.\
+I am planning to add this extension to the VSCode marketplace in the future.
 
 ## What is Lambda Calculus?
 Lambda Calculus is a Turing complete system that uses only functions for computing and is made up of only 3 stuctures:
