@@ -1,5 +1,7 @@
 # LCalcInterpreter
-An interpreter for the Lambda Calculus language written in Haskell.
+An interpreter for my Lambda Calculus based language LCalc, written in Haskell.
+
+![Screenshot ](/images/lcalc-syntax-highlighting.png?raw=true)
 
 ## How to Run
 1. Clone this repository onto your local machine
