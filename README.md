@@ -10,8 +10,8 @@ An interpreter for my Lambda Calculus based language LCalc, written in Haskell.
 4. Now run `./LCalcInterpreter {your_filename}` (ex. `./LCalcInterpreter example.lc` to run example program)
 
 ## Syntax Highlighting
-If you use Visual Studio Code as your text editor, there is currently no extension on the marketplace that adds syntax highlighting for my language, however, I made a syntax highlighter that you can use (https://github.com/JustinH11235/lcalc-syntax-highlighting) by simply placing this repository's folder in your `<user home>/.vscode/extensions` folder.\
-I am planning to add this extension to the VSCode marketplace in the future.
+I made my own syntax highlighter [extension](https://marketplace.visualstudio.com/items?itemName=justinh0.lcalc-syntax-highlighting) for Visual Studio Code that you can install in the normal VSCode Extension Marketplace.
+If you want to see the source code, here is the [repository](https://github.com/JustinH11235/lcalc-syntax-highlighting).
 
 ## What is Lambda Calculus?
 Lambda Calculus is a Turing complete system that uses only functions for computing and is made up of only 3 stuctures:
@@ -31,7 +31,7 @@ Evaluation for Lambda Calculus is relatively simple, all you do is evaluate func
 
 ## Plans
 - [x] Parse an input file as input instead of through stdin. This way you can create a .lc file and then use GHC to transpile your lambda calculus code into Haskell.
-- [x] Use De Bruijn indexing (https://en.wikipedia.org/wiki/De_Bruijn_index) to allow variable names to be reused (at the moment you need to be careful to not let variables shadow each other).
+- [x] Use [De Bruijn indexing](https://en.wikipedia.org/wiki/De_Bruijn_index) to allow variable names to be reused (at the moment you need to be careful to not let variables shadow each other).
 - [x] Create a standard library of functions like ADD, MULT, etc. and allow for substitution
 - [x] Allow users to write int literals such as 6 and create aliases for the Church Numeral representations of these
 - [x] Add to the syntax of the language by allowing assignment, such as A = (\a. a), so that A can be reused later in the code as an alias for (\a. a).
