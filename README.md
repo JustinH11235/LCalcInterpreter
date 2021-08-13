@@ -29,7 +29,7 @@ These "added features" consist of two main additions: a standard library of buil
 
 This project is fully functional, in more ways than one, as it can be used following the `How to Run` instructions below, is programmed in Haskell (a purely functional language), and implements Lambda Calculus, the basis of all functional languages.
 
-**I didn't make this project with any real intended use case in mind, it was more to advance my learning, but after finishing it, I honestly believe it might be one of the best educational tools to learn Lambda Calculus out there. If you want to try to come up with your own Lambda Calculus functions, you can use LCalc to see if they work as intended by running them directly as actual code.**
+**I didn't make this project with any real intended use case in mind, it was more to advance my learning, but after finishing it, I think this is a great tool to learn Lambda Calculus. If you want to try to come up with your own Lambda Calculus functions, you can use LCalc to see if they work as intended by running them directly as actual code.**
 
 ## How to Run
 1. Clone this repository onto your local machine
