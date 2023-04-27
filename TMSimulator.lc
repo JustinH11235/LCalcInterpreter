@@ -118,4 +118,4 @@ ITER := (\r.\q.\T.\i.
 );
 
 # run the simulator on start state 0, tape of [0], starting at index 0
-Y ITER 0 (PAIR 1 (PAIR 1 NIL)) 0;
+Y ITER 0 (PAIR 0 NIL) 0;
