@@ -1,0 +1,121 @@
+# Below is a simulator for any Turing Machine
+# Note: most of the defintions are already in LCalc's Standard Library, 
+# but this file repeats defintions so that it is self-contained and can be run on its own.
+
+# Necessary Gadgets:
+
+# Natural numbers
+0 := (λf.λx.x);
+1 := (λf.λx.f x);
+2 := (λf.λx.f (f x));
+# etc...
+SUCC := (λn.λf.λx.f (n f x));
+
+# Define PRED: (x) => x - 1
+ZERO := PAIR 0 0;
+SUCC1 := (λp. PAIR (SECOND p) (SUCC (SECOND p)));
+PRED := (λn. FIRST (n SUCC1 ZERO));
+
+SUB := (λm.λn.n PRED m);
+
+
+# Recursion 
+Y := (λf.(λx.f (x x)) (λx.f (x x)));
+
+# Booleans
+TRUE := (λx.λy.x);
+FALSE := (λx.λy.y);
+AND := (λp.λq.p q FALSE);
+OR := (λp.λq.p TRUE q);
+IS_ZERO := (λn.n (λ_.FALSE) TRUE);
+LEQ := (λm.λn.IS_ZERO (SUB m n));
+EQ := (λm.λn.AND (LEQ m n) (LEQ n m));
+IF_THEN_ELSE := (λp.λa.λb.p a b);
+
+# Linked List Nodes: (Val, Next) or NIL
+NIL := FALSE;
+PAIR := (λx.λy.λf.f x y);
+VAL := (λp.p TRUE);
+SECOND := (λp.p FALSE);
+IS_NULL := (λl.l (λv.λn.λ_.FALSE) TRUE);
+
+# if we're at end of list, extend w/ blank (0) to get an infinite tape
+NEXT := (\l.IF_THEN_ELSE (IS_NULL (SECOND l)) (PAIR 0 NIL) (SECOND l));
+
+# get ith element in list T
+GET := (\T.\i.VAL (i NEXT T));
+
+# set ith element in list T to char c recursively
+SET := Y (\r.\T.\i.\c.
+    IF_THEN_ELSE (EQ i 0) (PAIR c (NEXT T)) (PAIR (VAL T) (r (NEXT T) (PRED i) c))
+);
+
+
+
+
+
+# This is the TM that decides the language a*:
+# q1 accepts, q2 rejects, transitions:
+# q0, a -> q0, a, R
+# q0, b -> q2, b, R
+# q0, _ -> q1, _, R
+
+# Change ACCEPTING, REJECTING, and LOOKUP to simulate any TM you want
+
+ACCEPTING := (\q.
+    (EQ q 1)
+);
+REJECTING := (\q.
+    (EQ q 2)
+);
+
+# INPUT TRANSITIONS HERE (0 means blank) ===
+
+# Returns (q1 -> c -> D)
+# D - TRUE = Right, FALSE = Left
+# a = 1, b = 2
+LOOKUP := (\q.\c.
+    IF_THEN_ELSE (AND (EQ q 0) (EQ c 1)) 
+        (PAIR 0 (PAIR 1 (PAIR TRUE NIL)))
+    (IF_THEN_ELSE (AND (EQ q 0) (EQ c 2))
+        (PAIR 2 (PAIR 2 (PAIR TRUE NIL)))
+    (IF_THEN_ELSE (AND (EQ q 0) (EQ c 0))
+        (PAIR 1 (PAIR 0 (PAIR TRUE NIL)))
+    NIL ))
+);
+
+
+
+
+
+
+
+# Returns (q1 -> T1 -> i1)
+TRANSITION := (\q.\T.\i. 
+    (\L.
+        (\q1.\c.\D.
+            (PAIR q1 (PAIR (SET T i c) (PAIR (IF_THEN_ELSE D (SUCC i) (PRED i)) NIL)))
+        ) (GET L 0) 
+          (GET L 1) 
+          (GET L 2) 
+    ) (LOOKUP q (GET T i))
+);
+
+# Returns TRUE for accept and FALSE for reject, or loops
+# Returns PAIR (Accept/Reject, Tape)
+ITER := (\r.\q.\T.\i. 
+    IF_THEN_ELSE (ACCEPTING q) 
+        (PAIR TRUE T) 
+    (IF_THEN_ELSE (REJECTING q)
+        (PAIR FALSE T)
+        (((\N.
+            ((\q1.\T1.\i1. 
+                (r q1 T1 i1) 
+            ) (GET N 0) 
+              (GET N 1) 
+              (GET N 2) )
+        ) (TRANSITION q T i))) )
+);
+
+# run the simulator on start state 0, tape of [0], starting at index 0
+Y ITER 0 (PAIR 1 (PAIR 1 NIL)) 0;

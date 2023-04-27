@@ -170,7 +170,7 @@ throwAwayString s = whiteSpace *> stringP s
 parse :: String -> Maybe LCalcStatement
 parse inp = do
     -- let res = runParser (lCalcTerm <* whiteSpace) inp
-    let res = runParser (lCalcStatement <* whiteSpace) inp
+    let res = runParser (whiteSpace *> lCalcStatement <* whiteSpace) inp
     case res of
         Just (term, leftover) ->
             case leftover of
@@ -721,9 +721,17 @@ runLines (line:rest) lineNum aliases = do
                 error $ "Syntax error on line " ++ show lineNum ++ "."
 runLines [] lineNum aliases = return ()
 
+splitOn     :: (Char -> Bool) -> String -> [String]
+splitOn p s =  case dropWhile p s of
+                      "" -> []
+                      s' -> w : splitOn p s''
+                            where (w, s'') = break p s'
+
 runFile :: FilePath -> IO ()
 runFile path = do
-    input <- lines <$> readFile path
+    -- first filter out # lines,
+    -- then split on ;
+    input <- (splitOn (==';')) . unlines . filter (\line -> dropWhile isSpace line /= "" && head (dropWhile isSpace line) /= '#') . lines <$> readFile path
 
     runLines input 1 stdlib
 
